@@ -1,17 +1,13 @@
 {
   "name": "mygestao",
   "private": true,
-  "description": "Finanças pessoais — backend (Fastify) + frontend (Next.js)",
+  "description": "MyGestão — Next.js (UI + API /api)",
   "scripts": {
-    "dev": "concurrently -n api,web -c blue,green \"npm --prefix backend run dev\" \"npm --prefix frontend run dev\"",
-    "dev:backend": "npm --prefix backend run dev",
-    "dev:frontend": "npm --prefix frontend run dev",
-    "build": "npm --prefix backend run build && npm --prefix frontend run build",
-    "build:backend": "npm --prefix backend run build",
-    "build:frontend": "npm --prefix frontend run build",
-    "start:backend": "npm --prefix backend run start",
-    "start:frontend": "npm --prefix frontend run start",
-    "test:backend": "npm --prefix backend test",
+    "dev": "npm --prefix frontend run dev",
+    "build": "npm --prefix frontend run build",
+    "start": "npm --prefix frontend run start",
+    "lint": "npm --prefix frontend run lint",
+    "test": "npm --prefix frontend run test",
     "test:e2e": "npm --prefix frontend run test:e2e"
   },
   "devDependencies": {

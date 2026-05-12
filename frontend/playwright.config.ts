@@ -16,8 +16,5 @@ export default defineConfig({
     url: "http://127.0.0.1:3044",
     reuseExistingServer: !process.env.CI,
     timeout: 120_000,
-    env: {
-      NEXT_PUBLIC_API_URL: process.env.NEXT_PUBLIC_API_URL ?? "http://127.0.0.1:3333",
-    },
   },
 });
