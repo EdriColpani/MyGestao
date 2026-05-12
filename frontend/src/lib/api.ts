@@ -2,20 +2,27 @@ import { clearTokens, getAccessToken, getRefreshToken, setTokens } from "./auth-
 
 const DEFAULT_PORT = 3333;
 
-/** Rotas públicas: não enviar Bearer (evita cabeçalho obsoleto) nem refresh+retry em 401. */
-const PUBLIC_AUTH_JSON_PATHS = new Set(["/auth/login", "/auth/register"]);
+/** Rotas públicas: não enviar Bearer nem refresh+retry em 401. */
+const PUBLIC_AUTH_JSON_PATHS = new Set(["/auth/login", "/auth/register", "/auth/refresh"]);
+
+function isLoopbackUrl(url: string): boolean {
+  return (
+    url.includes("localhost") ||
+    url.includes("127.0.0.1") ||
+    url.includes("[::1]")
+  );
+}
 
 /**
- * Resolve a URL base da API.
- * No navegador, se o site abrir por IP/domínio público e NEXT_PUBLIC_API_URL for localhost
- * (ou vazio), usa o mesmo host da página na porta DEFAULT_PORT — evita bloqueio PNA/CORS
- * de "site público chamando localhost".
+ * Base URL externa da API (opcional). Se vazio, usa o próprio Next (`/api/...`).
+ * Mantém o comportamento PNA: em IP público, não forçar localhost no browser.
  */
 export function getApiBaseUrl(): string {
   const envUrl = process.env.NEXT_PUBLIC_API_URL?.trim();
 
   if (typeof window === "undefined") {
-    return envUrl || `http://localhost:${DEFAULT_PORT}`;
+    if (envUrl) return envUrl.replace(/\/$/, "");
+    return "";
   }
 
   const { protocol, hostname } = window.location;
@@ -23,26 +30,45 @@ export function getApiBaseUrl(): string {
     hostname === "localhost" || hostname === "127.0.0.1" || hostname === "[::1]";
 
   if (!isLocalHost) {
-    const envPointsToLoopback =
-      !envUrl ||
-      envUrl.includes("localhost") ||
-      envUrl.includes("127.0.0.1") ||
-      envUrl.includes("[::1]");
+    const envPointsToLoopback = !envUrl || isLoopbackUrl(envUrl);
     if (envPointsToLoopback) {
       return `${protocol}//${hostname}:${DEFAULT_PORT}`;
     }
-    return envUrl;
+    return envUrl.replace(/\/$/, "");
   }
 
-  return envUrl || `http://localhost:${DEFAULT_PORT}`;
+  if (envUrl) return envUrl.replace(/\/$/, "");
+  return "";
+}
+
+function getServerSideOrigin(): string {
+  if (process.env.VERCEL_URL) return `https://${process.env.VERCEL_URL}`;
+  return (process.env.NEXT_INTERNAL_APP_URL || "http://127.0.0.1:3000").replace(/\/$/, "");
+}
+
+/** URL final para `fetch` (prefixo `/api` quando a API é o mesmo Next). */
+export function resolveApiFetchUrl(path: string): string {
+  const pathNorm = path.startsWith("/") ? path : `/${path}`;
+  const ext = process.env.NEXT_PUBLIC_API_URL?.trim();
+  if (ext) {
+    return `${ext.replace(/\/$/, "")}${pathNorm}`;
+  }
+  if (typeof window === "undefined") {
+    const origin = getServerSideOrigin();
+    const apiPath = pathNorm.startsWith("/api") ? pathNorm : `/api${pathNorm}`;
+    return `${origin}${apiPath}`;
+  }
+  if (pathNorm.startsWith("/api")) {
+    return pathNorm;
+  }
+  return `/api${pathNorm}`;
 }
 
 async function refreshAccess(): Promise<boolean> {
-  const base = getApiBaseUrl();
   const refresh = getRefreshToken();
   if (!refresh) return false;
 
-  const res = await fetch(`${base}/auth/refresh`, {
+  const res = await fetch(resolveApiFetchUrl("/auth/refresh"), {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify({ refreshToken: refresh }),
@@ -65,8 +91,7 @@ async function refreshAccess(): Promise<boolean> {
 }
 
 export async function apiFetch(path: string, init?: RequestInit): Promise<Response> {
-  const base = getApiBaseUrl();
-  const url = `${base}${path}`;
+  const url = resolveApiFetchUrl(path);
   const headers = new Headers(init?.headers);
   if (!headers.has("Content-Type") && init?.body) {
     headers.set("Content-Type", "application/json");

@@ -2,12 +2,12 @@ name: CI
 
 on:
   push:
-    branches: [main, master]
+    branches: [main, master, mygestao]
   pull_request:
-    branches: [main, master]
+    branches: [main, master, mygestao]
 
 jobs:
-  backend:
+  app:
     runs-on: ubuntu-latest
     services:
       postgres:
@@ -26,7 +26,7 @@ jobs:
 
     defaults:
       run:
-        working-directory: backend
+        working-directory: frontend
 
     env:
       DATABASE_URL: postgresql://postgres:postgres@localhost:5432/mygestao_test?schema=public
@@ -39,45 +39,21 @@ jobs:
         with:
           node-version: "20"
           cache: npm
-          cache-dependency-path: backend/package-lock.json
-
-      - name: Instalar dependencias
-        run: npm ci
-
-      - name: Prisma generate
-        run: npm run prisma:generate
-
-      - name: Sincronizar schema (teste)
-        run: npx prisma db push --accept-data-loss
-
-      - name: Build
-        run: npm run build
-
-      - name: Testes
-        run: npm test
-
-  frontend:
-    runs-on: ubuntu-latest
-    defaults:
-      run:
-        working-directory: frontend
-
-    env:
-      NEXT_PUBLIC_API_URL: http://localhost:3333
-
-    steps:
-      - uses: actions/checkout@v4
-
-      - uses: actions/setup-node@v4
-        with:
-          node-version: "20"
-          cache: npm
           cache-dependency-path: frontend/package-lock.json
 
       - name: Instalar dependencias
         run: npm ci
 
-      - name: Build
+      - name: Prisma generate
+        run: npx prisma generate
+
+      - name: Sincronizar schema (teste)
+        run: npx prisma db push --accept-data-loss
+
+      - name: Testes (Vitest)
+        run: npm test
+
+      - name: Build Next.js
         run: npm run build
 
   frontend-e2e:
@@ -89,7 +65,23 @@ jobs:
 
     env:
       CI: true
-      NEXT_PUBLIC_API_URL: http://127.0.0.1:3333
+      DATABASE_URL: postgresql://postgres:postgres@localhost:5432/mygestao_e2e?schema=public
+      JWT_SECRET: ci-jwt-secret-at-least-32-characters-long!!
+
+    services:
+      postgres:
+        image: postgres:16-alpine
+        ports:
+          - 5432:5432
+        env:
+          POSTGRES_USER: postgres
+          POSTGRES_PASSWORD: postgres
+          POSTGRES_DB: mygestao_e2e
+        options: >-
+          --health-cmd "pg_isready -U postgres"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 10
 
     steps:
       - uses: actions/checkout@v4
@@ -103,8 +95,11 @@ jobs:
       - name: Instalar dependencias
         run: npm ci
 
+      - name: Prisma generate + schema
+        run: npx prisma generate && npx prisma db push --accept-data-loss
+
       - name: Playwright (Chromium + deps sistema)
         run: npx playwright install chromium --with-deps
 
-      - name: E2E smoke (Next via webServer do Playwright)
+      - name: E2E smoke
         run: npm run test:e2e
