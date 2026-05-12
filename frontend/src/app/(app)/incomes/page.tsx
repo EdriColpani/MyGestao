@@ -1,6 +1,7 @@
 "use client";
 
 import { FormEvent, useEffect, useState } from "react";
+import { CategorySelectWithAdd } from "@/components/CategorySelectWithAdd";
 import { apiJson } from "@/lib/api";
 import { currentYearMonth, rollingYearMonths, todayISODate } from "@/lib/month";
 import { formatBRL, parseDecimalInput } from "@/lib/money";
@@ -100,21 +101,18 @@ export default function IncomesPage() {
             ))}
           </select>
         </div>
-        <div>
-          <label className="text-sm font-medium text-slate-700">Categoria</label>
-          <select
-            required
-            value={categoryId}
-            onChange={(e) => setCategoryId(e.target.value)}
-            className="mt-1 w-full rounded-lg border border-slate-200 px-3 py-2"
-          >
-            {categories.map((c) => (
-              <option key={c.id} value={c.id}>
-                {c.name}
-              </option>
-            ))}
-          </select>
-        </div>
+        <CategorySelectWithAdd
+          label="Categoria"
+          categoryType="income"
+          value={categoryId}
+          onChange={setCategoryId}
+          categories={categories}
+          selectRequired
+          reloadCategories={async () => {
+            const cats = await apiJson<Category[]>("/categories?type=income");
+            setCategories(cats);
+          }}
+        />
         <div className="md:col-span-2">
           <label className="text-sm font-medium text-slate-700">Descrição</label>
           <input

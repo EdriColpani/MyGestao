@@ -11,6 +11,7 @@ import {
   XAxis,
   YAxis,
 } from "recharts";
+import { CategorySelectWithAdd } from "@/components/CategorySelectWithAdd";
 import { apiJson } from "@/lib/api";
 import { currentYearMonth, rollingYearMonths } from "@/lib/month";
 import { formatBRL } from "@/lib/money";
@@ -146,21 +147,18 @@ export default function ReportsPage() {
             ))}
           </select>
         </div>
-        <div>
-          <label className="text-sm font-medium text-slate-700">Categoria (parcelas)</label>
-          <select
-            value={categoryId}
-            onChange={(e) => setCategoryId(e.target.value)}
-            className="mt-1 w-full rounded-lg border border-slate-200 px-3 py-2"
-          >
-            <option value="">Todas</option>
-            {categories.map((c) => (
-              <option key={c.id} value={c.id}>
-                {c.name}
-              </option>
-            ))}
-          </select>
-        </div>
+        <CategorySelectWithAdd
+          label="Categoria (parcelas)"
+          categoryType="expense"
+          value={categoryId}
+          onChange={setCategoryId}
+          categories={categories}
+          emptyOption={{ value: "", label: "Todas" }}
+          reloadCategories={async () => {
+            const cat = await apiJson<Category[]>("/categories?type=expense");
+            setCategories(cat);
+          }}
+        />
         <div>
           <label className="text-sm font-medium text-slate-700">Status (parcelas)</label>
           <select

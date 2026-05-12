@@ -2,6 +2,7 @@ import type { NextRequest } from "next/server";
 import { handleApiRequest } from "@/server/api-router";
 
 export const dynamic = "force-dynamic";
+export const runtime = "nodejs";
 
 type Ctx = { params: Promise<{ path?: string[] }> };
 

@@ -637,6 +637,18 @@ export async function handleApiRequest(request: NextRequest, segments: string[])
     if (err.status === 400) {
       return NextResponse.json({ message: err.message }, { status: 400 });
     }
+    if (
+      e instanceof Error &&
+      (e.name === "PrismaClientInitializationError" || e.constructor?.name === "PrismaClientInitializationError")
+    ) {
+      return NextResponse.json(
+        {
+          message:
+            "Ligacao a base de dados falhou. Na Vercel: confirme DATABASE_URL (SSL, pooler Supabase), variaveis em Production, e redeploy apos alterar prisma/schema.",
+        },
+        { status: 503 },
+      );
+    }
     if (e instanceof Prisma.PrismaClientKnownRequestError && e.code === "P2003") {
       const hint = `${e.message} ${JSON.stringify(e.meta ?? {})}`;
       if (hint.includes("user_id") || hint.includes("users")) {
