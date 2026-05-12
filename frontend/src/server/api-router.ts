@@ -1,5 +1,6 @@
 import type { NextRequest } from "next/server";
 import { NextResponse } from "next/server";
+import { Prisma } from "@prisma/client";
 import bcrypt from "bcryptjs";
 import { z } from "zod";
 import { prisma } from "./prisma";
@@ -635,6 +636,18 @@ export async function handleApiRequest(request: NextRequest, segments: string[])
     const err = e as Error & { status?: number };
     if (err.status === 400) {
       return NextResponse.json({ message: err.message }, { status: 400 });
+    }
+    if (e instanceof Prisma.PrismaClientKnownRequestError && e.code === "P2003") {
+      const hint = `${e.message} ${JSON.stringify(e.meta ?? {})}`;
+      if (hint.includes("user_id") || hint.includes("users")) {
+        return NextResponse.json(
+          {
+            message:
+              "Sessao desatualizada: o utilizador deste token nao existe nesta base de dados. Use Sair, apague dados do site (localStorage) ou janela anonima, e faca login de novo.",
+          },
+          { status: 401 },
+        );
+      }
     }
     console.error("[api]", e);
     const expose =
