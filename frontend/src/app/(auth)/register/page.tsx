@@ -34,7 +34,7 @@ export default function RegisterPage() {
             message = `Erro ${res.status} (resposta invalida).`;
           }
         } else {
-          message = `Erro ${res.status}. Confirme o deploy e as variaveis na Vercel.`;
+          message = `Erro ${res.status}. Tente mais tarde.`;
         }
         throw new Error(message);
       }

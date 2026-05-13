@@ -658,6 +658,7 @@ export async function handleApiRequest(request: NextRequest, segments: string[])
       return NextResponse.json({ message: e.flatten().formErrors.join(", ") || "Payload invalido" }, { status: 400 });
     }
     if (e instanceof ApiConfigError) {
+      console.error("[api]", e.logDetail ?? e.message);
       return NextResponse.json({ message: e.message }, { status: e.statusCode });
     }
     const err = e as Error & { status?: number };
@@ -665,27 +666,24 @@ export async function handleApiRequest(request: NextRequest, segments: string[])
       return NextResponse.json({ message: err.message }, { status: 400 });
     }
     if (isJwtSecretConfigError(e)) {
+      console.error("[api] JWT/config", e);
       return NextResponse.json(
-        {
-          message:
-            "JWT_SECRET invalido ou incompativel no servidor. Na Vercel: Settings → Environment Variables — use uma string aleatoria (ex. openssl rand -base64 32), minimo 10 caracteres, guarde e redeploy.",
-        },
+        { message: "Servico temporariamente indisponivel. Tente mais tarde." },
         { status: 503 },
       );
     }
     if (e instanceof Error && /^Variaveis de ambiente invalidas/i.test(e.message)) {
-      return NextResponse.json({ message: e.message }, { status: 503 });
+      console.error("[api] env parse", e.message);
+      return NextResponse.json({ message: "Servico temporariamente indisponivel. Tente mais tarde." }, { status: 503 });
     }
     if (
       isDatabaseUnavailableError(e) ||
       (e instanceof Error &&
         (e.name === "PrismaClientInitializationError" || e.constructor?.name === "PrismaClientInitializationError"))
     ) {
+      console.error("[api] database unavailable", e);
       return NextResponse.json(
-        {
-          message:
-            "Ligacao a base de dados falhou. Confirme DATABASE_URL na Vercel (ambiente Production), password e caracteres especiais URL-encoded na URI, pooler Supabase (porta 6543) e sslmode=require; depois redeploy.",
-        },
+        { message: "Nao foi possivel conectar ao servico. Tente mais tarde." },
         { status: 503 },
       );
     }
@@ -694,8 +692,7 @@ export async function handleApiRequest(request: NextRequest, segments: string[])
       if (hint.includes("user_id") || hint.includes("users")) {
         return NextResponse.json(
           {
-            message:
-              "Sessao desatualizada: o utilizador deste token nao existe nesta base de dados. Use Sair, apague dados do site (localStorage) ou janela anonima, e faca login de novo.",
+            message: "Sessao expirada ou invalida. Saia, limpe os dados do site para este dominio e entre novamente.",
           },
           { status: 401 },
         );
@@ -707,7 +704,7 @@ export async function handleApiRequest(request: NextRequest, segments: string[])
     const detail =
       expose && e instanceof Error
         ? `${e.name}: ${e.message}`.slice(0, 500)
-        : "Erro interno";
+        : "Algo correu mal. Tente mais tarde.";
     return NextResponse.json({ message: detail }, { status: 500 });
   }
 }

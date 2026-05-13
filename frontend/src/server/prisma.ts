@@ -9,12 +9,16 @@ function assertVercelServerEnv(): void {
   const jwt = process.env.JWT_SECRET?.trim();
   if (!db) {
     throw new ApiConfigError(
-      "DATABASE_URL em falta neste deploy. Na Vercel: abra o projeto (Dashboard) → separador Settings no topo da pagina do projeto → menu esquerdo: Environment Variables → adicione DATABASE_URL, ambiente Production (e Preview se precisar) → Save → Redeploy. Guia: https://vercel.com/docs/environment-variables/managing-environment-variables",
+      "Servico temporariamente indisponivel. Tente mais tarde.",
+      503,
+      "Vercel Production: falta DATABASE_URL. Projeto → Settings → Environment Variables → adicionar e redeploy.",
     );
   }
   if (!jwt || jwt.length < 10) {
     throw new ApiConfigError(
-      "JWT_SECRET em falta ou invalido (min. 10 caracteres). Na Vercel: projeto → Settings → Environment Variables → adicione JWT_SECRET para Production → Save → Redeploy.",
+      "Servico temporariamente indisponivel. Tente mais tarde.",
+      503,
+      "Vercel Production: JWT_SECRET em falta ou com menos de 10 caracteres. Settings → Environment Variables → redeploy.",
     );
   }
 }
@@ -33,7 +37,13 @@ export function ensureApiRuntimeEnv(): void {
       validateDatabaseUrlEarly(normalized);
     }
   } catch (e) {
-    if (e instanceof Error) throw new ApiConfigError(e.message);
+    if (e instanceof Error) {
+      throw new ApiConfigError(
+        "Servico temporariamente indisponivel. Tente mais tarde.",
+        503,
+        `DATABASE_URL invalida: ${e.message}`,
+      );
+    }
     throw e;
   }
   runtimeEnvOk = true;

@@ -17,15 +17,15 @@ export async function GET() {
     return NextResponse.json({ ok: true, db: true, at: new Date().toISOString() });
   } catch (e) {
     if (e instanceof ApiConfigError) {
+      console.error("[health/ready] env", e.logDetail ?? e.message);
       return NextResponse.json({ ok: false, step: "env", message: e.message }, { status: 503 });
     }
-    console.error("[health/ready]", e);
+    console.error("[health/ready] database", e);
     return NextResponse.json(
       {
         ok: false,
         step: "database",
-        message:
-          "Prisma nao conseguiu ligar a DATABASE_URL. Confirme a URI na Vercel (Production), SSL/pooler Supabase e redeploy.",
+        message: "Nao foi possivel conectar ao servico. Tente mais tarde.",
       },
       { status: 503 },
     );
