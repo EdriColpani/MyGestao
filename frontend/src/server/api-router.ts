@@ -3,7 +3,8 @@ import { NextResponse } from "next/server";
 import { Prisma } from "@prisma/client";
 import bcrypt from "bcryptjs";
 import { z } from "zod";
-import { prisma } from "./prisma";
+import { ApiConfigError } from "./api-errors";
+import { ensureApiRuntimeEnv, prisma } from "./prisma";
 import { toMonthStart } from "./date";
 import { signAccessToken, signRefreshToken, verifyToken, type JwtUserPayload } from "./jwt";
 import { withRls } from "./with-rls";
@@ -24,6 +25,28 @@ function unauthorized(message = "Nao autorizado"): NextResponse {
   return NextResponse.json({ message }, { status: 401 });
 }
 
+function isDatabaseUnavailableError(e: unknown): boolean {
+  if (e instanceof Prisma.PrismaClientKnownRequestError) {
+    return ["P1001", "P1000", "P1017", "P1011", "P1013"].includes(e.code);
+  }
+  if (!e || typeof e !== "object") return false;
+  const err = e as Error;
+  const name = err.name ?? "";
+  const ctor = (e as { constructor?: { name?: string } }).constructor?.name ?? "";
+  if (name === "PrismaClientInitializationError" || ctor === "PrismaClientInitializationError") {
+    return true;
+  }
+  const msg = typeof err.message === "string" ? err.message : "";
+  return /P1001|P1000|P1017|P1011|P1013|Can't reach database server|connect ECONNREFUSED|connection timed out|Server has closed the connection|database .* does not exist|Invalid.*database string/i.test(
+    msg,
+  );
+}
+
+function isJwtSecretConfigError(e: unknown): boolean {
+  if (!(e instanceof Error) || !e.message) return false;
+  return /secretOrPrivateKey|secret key|JWT|jwt|HS256|key must have/i.test(e.message);
+}
+
 async function requireAccess(request: NextRequest): Promise<{ user: JwtUserPayload } | NextResponse> {
   const auth = request.headers.get("authorization");
   if (!auth?.startsWith("Bearer ")) return unauthorized();
@@ -41,6 +64,7 @@ async function requireAccess(request: NextRequest): Promise<{ user: JwtUserPaylo
 
 /** Roteador HTTP — mesmas rotas que o antigo Fastify (`/auth/...`, `/cards`, …). */
 export async function handleApiRequest(request: NextRequest, segments: string[]): Promise<NextResponse> {
+  ensureApiRuntimeEnv();
   const method = request.method;
   const url = new URL(request.url);
 
@@ -633,18 +657,34 @@ export async function handleApiRequest(request: NextRequest, segments: string[])
     if (e instanceof z.ZodError) {
       return NextResponse.json({ message: e.flatten().formErrors.join(", ") || "Payload invalido" }, { status: 400 });
     }
+    if (e instanceof ApiConfigError) {
+      return NextResponse.json({ message: e.message }, { status: e.statusCode });
+    }
     const err = e as Error & { status?: number };
     if (err.status === 400) {
       return NextResponse.json({ message: err.message }, { status: 400 });
     }
+    if (isJwtSecretConfigError(e)) {
+      return NextResponse.json(
+        {
+          message:
+            "JWT_SECRET invalido ou incompativel no servidor. Na Vercel: Settings → Environment Variables — use uma string aleatoria (ex. openssl rand -base64 32), minimo 10 caracteres, guarde e redeploy.",
+        },
+        { status: 503 },
+      );
+    }
+    if (e instanceof Error && /^Variaveis de ambiente invalidas/i.test(e.message)) {
+      return NextResponse.json({ message: e.message }, { status: 503 });
+    }
     if (
-      e instanceof Error &&
-      (e.name === "PrismaClientInitializationError" || e.constructor?.name === "PrismaClientInitializationError")
+      isDatabaseUnavailableError(e) ||
+      (e instanceof Error &&
+        (e.name === "PrismaClientInitializationError" || e.constructor?.name === "PrismaClientInitializationError"))
     ) {
       return NextResponse.json(
         {
           message:
-            "Ligacao a base de dados falhou. Na Vercel: confirme DATABASE_URL (SSL, pooler Supabase), variaveis em Production, e redeploy apos alterar prisma/schema.",
+            "Ligacao a base de dados falhou. Confirme DATABASE_URL na Vercel (ambiente Production), password e caracteres especiais URL-encoded na URI, pooler Supabase (porta 6543) e sslmode=require; depois redeploy.",
         },
         { status: 503 },
       );

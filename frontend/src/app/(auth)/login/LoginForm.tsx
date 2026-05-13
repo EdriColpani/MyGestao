@@ -33,8 +33,19 @@ export function LoginForm({ redirectTo }: Props) {
         body: JSON.stringify({ email, password }),
       });
       if (!res.ok) {
-        const body = (await res.json()) as { message?: string };
-        throw new Error(body.message ?? "Falha no login");
+        let message = "Falha no login";
+        const ct = res.headers.get("content-type") ?? "";
+        if (ct.includes("application/json")) {
+          try {
+            const body = (await res.json()) as { message?: string };
+            if (body.message) message = body.message;
+          } catch {
+            message = `Erro ${res.status} (resposta invalida).`;
+          }
+        } else {
+          message = `Erro ${res.status}. Confirme o deploy e as variaveis na Vercel.`;
+        }
+        throw new Error(message);
       }
       const data = (await res.json()) as {
         accessToken: string;

@@ -24,8 +24,19 @@ export default function RegisterPage() {
         body: JSON.stringify({ name, email, password }),
       });
       if (!res.ok) {
-        const body = (await res.json()) as { message?: string };
-        throw new Error(body.message ?? "Falha no cadastro");
+        let message = "Falha no cadastro";
+        const ct = res.headers.get("content-type") ?? "";
+        if (ct.includes("application/json")) {
+          try {
+            const body = (await res.json()) as { message?: string };
+            if (body.message) message = body.message;
+          } catch {
+            message = `Erro ${res.status} (resposta invalida).`;
+          }
+        } else {
+          message = `Erro ${res.status}. Confirme o deploy e as variaveis na Vercel.`;
+        }
+        throw new Error(message);
       }
       router.replace("/login");
     } catch (err) {
