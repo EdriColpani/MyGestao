@@ -1,5 +1,6 @@
 import { PrismaClient } from "@prisma/client";
 import { ApiConfigError } from "./api-errors";
+import { normalizePostgresUrlForServerless } from "./database-url";
 import { validateDatabaseUrlEarly } from "./env";
 
 function assertVercelServerEnv(): void {
@@ -24,8 +25,13 @@ let runtimeEnvOk = false;
 export function ensureApiRuntimeEnv(): void {
   if (runtimeEnvOk) return;
   assertVercelServerEnv();
+  const raw = process.env.DATABASE_URL!.trim();
   try {
-    validateDatabaseUrlEarly(process.env.DATABASE_URL);
+    validateDatabaseUrlEarly(raw);
+    const normalized = normalizePostgresUrlForServerless(raw);
+    if (normalized !== raw) {
+      validateDatabaseUrlEarly(normalized);
+    }
   } catch (e) {
     if (e instanceof Error) throw new ApiConfigError(e.message);
     throw e;
@@ -35,11 +41,21 @@ export function ensureApiRuntimeEnv(): void {
 
 const globalForPrisma = globalThis as unknown as { prisma: PrismaClient | undefined };
 
-export const prisma =
-  globalForPrisma.prisma ??
-  new PrismaClient({
+function createPrismaClient(): PrismaClient {
+  const raw = process.env.DATABASE_URL?.trim();
+  if (!raw) {
+    return new PrismaClient({
+      log: process.env.NODE_ENV === "development" ? ["error", "warn"] : ["error"],
+    });
+  }
+  const url = normalizePostgresUrlForServerless(raw);
+  return new PrismaClient({
+    datasources: { db: { url } },
     log: process.env.NODE_ENV === "development" ? ["error", "warn"] : ["error"],
   });
+}
+
+export const prisma = globalForPrisma.prisma ?? createPrismaClient();
 
 if (process.env.NODE_ENV !== "production") {
   globalForPrisma.prisma = prisma;
