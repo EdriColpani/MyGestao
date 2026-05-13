@@ -1,7 +1,5 @@
 import { clearTokens, getAccessToken, getRefreshToken, setTokens } from "./auth-storage";
 
-const DEFAULT_PORT = 3333;
-
 /** Rotas públicas: não enviar Bearer nem refresh+retry em 401. */
 const PUBLIC_AUTH_JSON_PATHS = new Set(["/auth/login", "/auth/register", "/auth/refresh"]);
 
@@ -13,31 +11,29 @@ function isLoopbackUrl(url: string): boolean {
   );
 }
 
+function isBrowserLocalHost(hostname: string): boolean {
+  return hostname === "localhost" || hostname === "127.0.0.1" || hostname === "[::1]";
+}
+
 /**
- * Base URL externa da API (opcional). Se vazio, usa o próprio Next (`/api/...`).
- * Mantém o comportamento PNA: em IP público, não forçar localhost no browser.
+ * Base opcional para a API. Em produção (domínio real), URLs para localhost são ignoradas
+ * para não quebrar o deploy na Vercel quando o .env local é copiado por engano.
  */
 export function getApiBaseUrl(): string {
-  const envUrl = process.env.NEXT_PUBLIC_API_URL?.trim();
+  const ext = process.env.NEXT_PUBLIC_API_URL?.trim();
+  if (!ext) return "";
 
   if (typeof window === "undefined") {
-    if (envUrl) return envUrl.replace(/\/$/, "");
+    if (!isLoopbackUrl(ext)) return ext.replace(/\/$/, "");
     return "";
   }
 
-  const { protocol, hostname } = window.location;
-  const isLocalHost =
-    hostname === "localhost" || hostname === "127.0.0.1" || hostname === "[::1]";
-
-  if (!isLocalHost) {
-    const envPointsToLoopback = !envUrl || isLoopbackUrl(envUrl);
-    if (envPointsToLoopback) {
-      return `${protocol}//${hostname}:${DEFAULT_PORT}`;
-    }
-    return envUrl.replace(/\/$/, "");
+  if (isBrowserLocalHost(window.location.hostname)) {
+    return ext.replace(/\/$/, "");
   }
-
-  if (envUrl) return envUrl.replace(/\/$/, "");
+  if (!isLoopbackUrl(ext)) {
+    return ext.replace(/\/$/, "");
+  }
   return "";
 }
 
@@ -46,17 +42,31 @@ function getServerSideOrigin(): string {
   return (process.env.NEXT_INTERNAL_APP_URL || "http://127.0.0.1:3000").replace(/\/$/, "");
 }
 
-/** URL final para `fetch` (prefixo `/api` quando a API é o mesmo Next). */
+/**
+ * URL usada pelo `fetch`. No browser em produção, usa sempre `/api/...` no mesmo host,
+ * exceto se NEXT_PUBLIC_API_URL for um URL público (ex.: API noutro domínio).
+ */
 export function resolveApiFetchUrl(path: string): string {
   const pathNorm = path.startsWith("/") ? path : `/${path}`;
   const ext = process.env.NEXT_PUBLIC_API_URL?.trim();
-  if (ext) {
-    return `${ext.replace(/\/$/, "")}${pathNorm}`;
-  }
+
   if (typeof window === "undefined") {
+    if (ext && !isLoopbackUrl(ext)) {
+      return `${ext.replace(/\/$/, "")}${pathNorm}`;
+    }
     const origin = getServerSideOrigin();
     const apiPath = pathNorm.startsWith("/api") ? pathNorm : `/api${pathNorm}`;
     return `${origin}${apiPath}`;
+  }
+
+  const host = window.location.hostname;
+  const local = isBrowserLocalHost(host);
+
+  if (local && ext) {
+    return `${ext.replace(/\/$/, "")}${pathNorm}`;
+  }
+  if (!local && ext && !isLoopbackUrl(ext)) {
+    return `${ext.replace(/\/$/, "")}${pathNorm}`;
   }
   if (pathNorm.startsWith("/api")) {
     return pathNorm;
