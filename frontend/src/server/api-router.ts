@@ -53,11 +53,6 @@ async function requireAccess(request: NextRequest): Promise<{ user: JwtUserPaylo
   if (!auth?.startsWith("Bearer ")) return unauthorized();
   const token = auth.slice(7);
 
-  const supa = await verifySupabaseAccessToken(token);
-  if (supa) {
-    return { user: { sub: supa.sub, email: supa.email, role: "user" } };
-  }
-
   try {
     const decoded = verifyToken(token);
     if (decoded.tokenUse === "refresh") {
@@ -65,8 +60,19 @@ async function requireAccess(request: NextRequest): Promise<{ user: JwtUserPaylo
     }
     return { user: decoded };
   } catch {
-    return unauthorized();
+    /* nao e access token JWT da app (assinatura/exp) */
   }
+
+  try {
+    const supa = await verifySupabaseAccessToken(token);
+    if (supa) {
+      return { user: { sub: supa.sub, email: supa.email, role: "user" } };
+    }
+  } catch {
+    /* rede / Supabase indisponivel — nao derrubar rotas com token legado */
+  }
+
+  return unauthorized();
 }
 
 /** Roteador HTTP — mesmas rotas que o antigo Fastify (`/auth/...`, `/cards`, …). */
