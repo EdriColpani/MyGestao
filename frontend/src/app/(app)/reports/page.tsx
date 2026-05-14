@@ -23,6 +23,8 @@ type PaymentRow = {
   id: string;
   referenceMonth: string;
   paidTotalAmount: string | number;
+  interestAmount?: string | number | null;
+  lateFeeAmount?: string | number | null;
   paymentDate: string;
   card: { name: string; brand: string };
 };
@@ -33,7 +35,11 @@ type InstallmentRow = {
   amount: string | number;
   status: string;
   card: { name: string };
-  purchase: { expenseDescription: string; category: { name: string } };
+  purchase: {
+    expenseDescription: string;
+    category: { name: string };
+    dueDate?: string | null;
+  };
 };
 
 export default function ReportsPage() {
@@ -227,6 +233,8 @@ export default function ReportsPage() {
                 <th className="px-4 py-3">Data</th>
                 <th className="px-4 py-3">Cartão</th>
                 <th className="px-4 py-3">Mês ref.</th>
+                <th className="px-4 py-3">Juros</th>
+                <th className="px-4 py-3">Mora</th>
                 <th className="px-4 py-3">Valor</th>
               </tr>
             </thead>
@@ -239,6 +247,10 @@ export default function ReportsPage() {
                     <span className="text-slate-500">({p.card.brand})</span>
                   </td>
                   <td className="px-4 py-3">{p.referenceMonth.slice(0, 7)}</td>
+                  <td className="px-4 py-3 text-slate-700">
+                    {formatBRL(Number(p.interestAmount ?? 0))}
+                  </td>
+                  <td className="px-4 py-3 text-slate-700">{formatBRL(Number(p.lateFeeAmount ?? 0))}</td>
                   <td className="px-4 py-3 font-medium">{formatBRL(Number(p.paidTotalAmount))}</td>
                 </tr>
               ))}
@@ -254,6 +266,7 @@ export default function ReportsPage() {
             <thead className="border-b border-slate-200 bg-slate-50/80 text-slate-600">
               <tr>
                 <th className="px-4 py-3">Mês</th>
+                <th className="px-4 py-3">Vencimento</th>
                 <th className="px-4 py-3">Cartão</th>
                 <th className="px-4 py-3">Categoria</th>
                 <th className="px-4 py-3">Descrição</th>
@@ -265,6 +278,9 @@ export default function ReportsPage() {
               {installments.map((r) => (
                 <tr key={r.id} className="border-b border-slate-100">
                   <td className="px-4 py-3">{r.referenceMonth.slice(0, 7)}</td>
+                  <td className="px-4 py-3 whitespace-nowrap text-slate-600">
+                    {r.purchase.dueDate ? r.purchase.dueDate.slice(0, 10) : "—"}
+                  </td>
                   <td className="px-4 py-3">{r.card.name}</td>
                   <td className="px-4 py-3">{r.purchase.category.name}</td>
                   <td className="px-4 py-3">{r.purchase.expenseDescription}</td>

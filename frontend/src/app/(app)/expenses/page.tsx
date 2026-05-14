@@ -16,6 +16,7 @@ type Purchase = {
   totalAmount: string | number;
   installments: number;
   purchaseDate: string;
+  dueDate: string | null;
   storeName: string;
   card: { name: string };
   category: { name: string };
@@ -31,6 +32,7 @@ export default function ExpensesPage() {
   const [totalAmount, setTotalAmount] = useState("");
   const [installments, setInstallments] = useState("1");
   const [purchaseDate, setPurchaseDate] = useState(todayISODate());
+  const [dueDate, setDueDate] = useState(todayISODate());
   const [storeName, setStoreName] = useState("");
   const [productDescription, setProductDescription] = useState("");
   const [cardId, setCardId] = useState("");
@@ -84,6 +86,7 @@ export default function ExpensesPage() {
           totalAmount: total,
           installments: inst,
           purchaseDate,
+          dueDate,
           storeName,
           productDescription,
           cardId,
@@ -166,6 +169,17 @@ export default function ExpensesPage() {
             onChange={(e) => setPurchaseDate(e.target.value)}
             className={`mt-1 ${formControlClass}`}
           />
+        </div>
+        <div>
+          <label className="text-sm font-medium text-slate-700">Data de vencimento</label>
+          <input
+            required
+            type="date"
+            value={dueDate}
+            onChange={(e) => setDueDate(e.target.value)}
+            className={`mt-1 ${formControlClass}`}
+          />
+          <p className="mt-1 text-xs text-slate-500">Vencimento da cobrança ou da parcela na fatura.</p>
         </div>
         <div className="md:col-span-2">
           <label className="text-sm font-medium text-slate-700">Descrição da despesa</label>
@@ -256,6 +270,11 @@ export default function ExpensesPage() {
                   <span>·</span>
                   <span>{p.installments}x</span>
                 </div>
+                {p.dueDate && (
+                  <p className="mt-2 text-xs font-medium text-ocean-800">
+                    Venc.: {p.dueDate.slice(0, 10).split("-").reverse().join("/")}
+                  </p>
+                )}
               </article>
             ))
           )}
@@ -266,6 +285,7 @@ export default function ExpensesPage() {
             <thead className="border-b border-slate-200 bg-slate-50/80 text-slate-600">
               <tr>
                 <th className="px-4 py-3">Mês ref.</th>
+                <th className="px-4 py-3">Vencimento</th>
                 <th className="px-4 py-3">Descrição</th>
                 <th className="px-4 py-3">Loja</th>
                 <th className="px-4 py-3">Cartão</th>
@@ -277,7 +297,7 @@ export default function ExpensesPage() {
             <tbody>
               {purchases.length === 0 ? (
                 <tr>
-                  <td colSpan={7} className="px-4 py-6 text-center text-slate-500">
+                  <td colSpan={8} className="px-4 py-6 text-center text-slate-500">
                     Nenhuma compra registrada ainda.
                   </td>
                 </tr>
@@ -285,6 +305,9 @@ export default function ExpensesPage() {
                 purchases.map((p) => (
                   <tr key={p.id} className="border-b border-slate-100">
                     <td className="px-4 py-3">{p.referenceMonth.slice(0, 7)}</td>
+                    <td className="px-4 py-3 whitespace-nowrap text-slate-700">
+                      {p.dueDate ? p.dueDate.slice(0, 10) : "—"}
+                    </td>
                     <td className="px-4 py-3">{p.expenseDescription}</td>
                     <td className="px-4 py-3">{p.storeName}</td>
                     <td className="px-4 py-3">{p.card.name}</td>

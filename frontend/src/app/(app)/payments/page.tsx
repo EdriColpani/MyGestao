@@ -4,7 +4,7 @@ import { FormEvent, useEffect, useState } from "react";
 import { apiJson } from "@/lib/api";
 import { formControlClass } from "@/lib/form-styles";
 import { currentYearMonth, rollingYearMonths, todayISODate } from "@/lib/month";
-import { formatBRL } from "@/lib/money";
+import { formatBRL, parseDecimalInput } from "@/lib/money";
 
 type Card = { id: string; name: string };
 type Installment = {
@@ -13,7 +13,7 @@ type Installment = {
   totalInstallments: number;
   amount: string | number;
   status: string;
-  purchase: { expenseDescription: string; storeName: string };
+  purchase: { expenseDescription: string; storeName: string; dueDate?: string | null };
 };
 
 export default function PaymentsPage() {
@@ -23,6 +23,8 @@ export default function PaymentsPage() {
   const [rows, setRows] = useState<Installment[]>([]);
   const [selected, setSelected] = useState<Record<string, boolean>>({});
   const [paymentDate, setPaymentDate] = useState(todayISODate());
+  const [interestInput, setInterestInput] = useState("");
+  const [lateFeeInput, setLateFeeInput] = useState("");
   const [error, setError] = useState<string | null>(null);
   const [msg, setMsg] = useState<string | null>(null);
 
@@ -78,6 +80,12 @@ export default function PaymentsPage() {
     }
     setError(null);
     try {
+      const interestAmount = interestInput.trim() === "" ? 0 : parseDecimalInput(interestInput);
+      const lateFeeAmount = lateFeeInput.trim() === "" ? 0 : parseDecimalInput(lateFeeInput);
+      if (interestAmount < 0 || lateFeeAmount < 0 || Number.isNaN(interestAmount) || Number.isNaN(lateFeeAmount)) {
+        setError("Juros e mora devem ser valores numéricos válidos (ex.: 1,50 ou 0).");
+        return;
+      }
       await apiJson("/payments/invoices/process", {
         method: "POST",
         body: JSON.stringify({
@@ -85,9 +93,13 @@ export default function PaymentsPage() {
           referenceMonth,
           paymentDate,
           installmentIds: selectedIds,
+          interestAmount,
+          lateFeeAmount,
         }),
       });
       setMsg("Pagamento registrado e fluxo de caixa atualizado.");
+      setInterestInput("");
+      setLateFeeInput("");
       await loadInstallments();
     } catch (err) {
       setError(err instanceof Error ? err.message : "Erro no pagamento");
@@ -103,43 +115,71 @@ export default function PaymentsPage() {
         <p className="text-sm text-slate-600 sm:text-base">Filtre por mês e cartão, selecione parcelas e confirme o pagamento.</p>
       </div>
 
-      <div className="grid gap-4 rounded-2xl border border-slate-200/80 bg-white/90 p-6 shadow-sm backdrop-blur md:grid-cols-3">
-        <div>
-          <label className="text-sm font-medium text-slate-700">Mês</label>
-          <select
-            value={referenceMonth}
-            onChange={(e) => setReferenceMonth(e.target.value)}
-            className={`mt-1 ${formControlClass}`}
-          >
-            {months.map((m) => (
-              <option key={m.value} value={m.value}>
-                {m.label}
-              </option>
-            ))}
-          </select>
+      <div className="space-y-4 rounded-2xl border border-slate-200/80 bg-white/90 p-4 shadow-sm backdrop-blur sm:p-6">
+        <div className="grid gap-4 md:grid-cols-3">
+          <div>
+            <label className="text-sm font-medium text-slate-700">Mês</label>
+            <select
+              value={referenceMonth}
+              onChange={(e) => setReferenceMonth(e.target.value)}
+              className={`mt-1 ${formControlClass}`}
+            >
+              {months.map((m) => (
+                <option key={m.value} value={m.value}>
+                  {m.label}
+                </option>
+              ))}
+            </select>
+          </div>
+          <div>
+            <label className="text-sm font-medium text-slate-700">Cartão</label>
+            <select
+              value={cardId}
+              onChange={(e) => setCardId(e.target.value)}
+              className={`mt-1 ${formControlClass}`}
+            >
+              {cards.map((c) => (
+                <option key={c.id} value={c.id}>
+                  {c.name}
+                </option>
+              ))}
+            </select>
+          </div>
+          <div>
+            <label className="text-sm font-medium text-slate-700">Data do pagamento</label>
+            <input
+              type="date"
+              value={paymentDate}
+              onChange={(e) => setPaymentDate(e.target.value)}
+              className={`mt-1 ${formControlClass}`}
+            />
+          </div>
         </div>
-        <div>
-          <label className="text-sm font-medium text-slate-700">Cartão</label>
-          <select
-            value={cardId}
-            onChange={(e) => setCardId(e.target.value)}
-            className={`mt-1 ${formControlClass}`}
-          >
-            {cards.map((c) => (
-              <option key={c.id} value={c.id}>
-                {c.name}
-              </option>
-            ))}
-          </select>
-        </div>
-        <div>
-          <label className="text-sm font-medium text-slate-700">Data do pagamento</label>
-          <input
-            type="date"
-            value={paymentDate}
-            onChange={(e) => setPaymentDate(e.target.value)}
-            className={`mt-1 ${formControlClass}`}
-          />
+        <div className="grid gap-4 border-t border-slate-100 pt-4 md:grid-cols-2">
+          <div>
+            <label className="text-sm font-medium text-slate-700">Juros (R$)</label>
+            <p className="mt-0.5 text-xs text-slate-500">Opcional, quando houver cobrança de juros por atraso.</p>
+            <input
+              type="text"
+              inputMode="decimal"
+              placeholder="0"
+              value={interestInput}
+              onChange={(e) => setInterestInput(e.target.value)}
+              className={`mt-1 ${formControlClass}`}
+            />
+          </div>
+          <div>
+            <label className="text-sm font-medium text-slate-700">Mora (R$)</label>
+            <p className="mt-0.5 text-xs text-slate-500">Opcional, multa / mora por atraso na parcela.</p>
+            <input
+              type="text"
+              inputMode="decimal"
+              placeholder="0"
+              value={lateFeeInput}
+              onChange={(e) => setLateFeeInput(e.target.value)}
+              className={`mt-1 ${formControlClass}`}
+            />
+          </div>
         </div>
       </div>
 
@@ -171,6 +211,11 @@ export default function PaymentsPage() {
                     </span>
                     <span className="mt-1 block text-sm text-slate-700">{r.purchase.expenseDescription}</span>
                     <span className="mt-1 block text-xs text-slate-500">{r.purchase.storeName}</span>
+                    {r.purchase.dueDate ? (
+                      <span className="mt-1 block text-xs font-medium text-ocean-800">
+                        Venc. compra: {r.purchase.dueDate.slice(0, 10)}
+                      </span>
+                    ) : null}
                   </span>
                 </label>
                 <span className="shrink-0 text-base font-semibold text-ocean-800">
@@ -190,13 +235,14 @@ export default function PaymentsPage() {
               <th className="px-4 py-3">Parcela</th>
               <th className="px-4 py-3">Descrição</th>
               <th className="px-4 py-3">Loja</th>
+              <th className="px-4 py-3">Venc.</th>
               <th className="px-4 py-3">Valor</th>
             </tr>
           </thead>
           <tbody>
             {rows.length === 0 ? (
               <tr>
-                <td colSpan={5} className="px-4 py-6 text-center text-slate-500">
+                <td colSpan={6} className="px-4 py-6 text-center text-slate-500">
                   Nenhuma parcela pendente para este mês e cartão.
                 </td>
               </tr>
@@ -215,6 +261,9 @@ export default function PaymentsPage() {
                   </td>
                   <td className="px-4 py-3">{r.purchase.expenseDescription}</td>
                   <td className="px-4 py-3">{r.purchase.storeName}</td>
+                  <td className="px-4 py-3 whitespace-nowrap text-slate-600">
+                    {r.purchase.dueDate ? r.purchase.dueDate.slice(0, 10) : "—"}
+                  </td>
                   <td className="px-4 py-3 font-medium">{formatBRL(Number(r.amount))}</td>
                 </tr>
               ))
