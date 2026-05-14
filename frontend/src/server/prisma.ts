@@ -1,6 +1,10 @@
 import { PrismaClient } from "@prisma/client";
 import { ApiConfigError } from "./api-errors";
-import { getResolvedDatabaseUrlForPrisma, normalizePostgresUrlForServerless } from "./database-url";
+import {
+  assertNoSupabaseDirectDbHostOnServerless,
+  getResolvedDatabaseUrlForPrisma,
+  normalizePostgresUrlForServerless,
+} from "./database-url";
 import { validateDatabaseUrlEarly } from "./env";
 
 function assertVercelServerEnv(): void {
@@ -49,6 +53,7 @@ export function ensureApiRuntimeEnv(): void {
       validateDatabaseUrlEarly(normalized);
     }
   } catch (e) {
+    if (e instanceof ApiConfigError) throw e;
     if (e instanceof Error) {
       throw new ApiConfigError(
         "Servico temporariamente indisponivel. Tente mais tarde.",
