@@ -1,5 +1,9 @@
 import { describe, expect, it, vi } from "vitest";
-import { getResolvedDatabaseUrlForPrisma, normalizePostgresUrlForServerless } from "@/server/database-url";
+import {
+  assertNoSupabaseDirectDbHostOnServerless,
+  getResolvedDatabaseUrlForPrisma,
+  normalizePostgresUrlForServerless,
+} from "@/server/database-url";
 
 describe("getResolvedDatabaseUrlForPrisma", () => {
   it("prioriza PRISMA_DATABASE_URL", () => {
@@ -15,6 +19,28 @@ describe("getResolvedDatabaseUrlForPrisma", () => {
     vi.stubEnv("POSTGRES_PRISMA_URL", "");
     vi.stubEnv("DATABASE_URL", "postgresql://u:p@localhost:5432/db");
     expect(getResolvedDatabaseUrlForPrisma()).toContain("localhost");
+    vi.unstubAllEnvs();
+  });
+});
+
+describe("assertNoSupabaseDirectDbHostOnServerless", () => {
+  it("na Vercel bloqueia db.*.supabase.co:5432", () => {
+    vi.stubEnv("VERCEL", "1");
+    expect(() =>
+      assertNoSupabaseDirectDbHostOnServerless(
+        "postgresql://postgres:x@db.abc123.supabase.co:5432/postgres",
+      ),
+    ).toThrow();
+    vi.unstubAllEnvs();
+  });
+
+  it("fora da Vercel nao bloqueia", () => {
+    vi.stubEnv("VERCEL", "");
+    expect(() =>
+      assertNoSupabaseDirectDbHostOnServerless(
+        "postgresql://postgres:x@db.abc123.supabase.co:5432/postgres",
+      ),
+    ).not.toThrow();
     vi.unstubAllEnvs();
   });
 });
