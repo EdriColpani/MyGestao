@@ -43,6 +43,7 @@ export function ensureApiRuntimeEnv(): void {
   }
   try {
     validateDatabaseUrlEarly(raw);
+    assertNoSupabaseDirectDbHostOnServerless(raw);
     const normalized = normalizePostgresUrlForServerless(raw);
     if (normalized !== raw) {
       validateDatabaseUrlEarly(normalized);

@@ -4,6 +4,8 @@
  * @see https://www.prisma.io/docs/orm/prisma-client/setup-and-configuration/databases-connections/pgbouncer
  */
 
+import { ApiConfigError } from "./api-errors";
+
 /** Ordem: URI dedicada ao Prisma (Supabase/Vercel) → integração Postgres → genérica. */
 export function getResolvedDatabaseUrlForPrisma(): string | undefined {
   const a = process.env.PRISMA_DATABASE_URL?.trim();
@@ -13,6 +15,31 @@ export function getResolvedDatabaseUrlForPrisma(): string | undefined {
   const c = process.env.DATABASE_URL?.trim();
   if (c) return c;
   return undefined;
+}
+
+/**
+ * Na Vercel, `db.*.supabase.co:5432` (ligacao direta) falha frequentemente (IPv6, limites).
+ * O Supabase expoe a string "Transaction" / pooler na porta 6543.
+ */
+export function assertNoSupabaseDirectDbHostOnServerless(raw: string): void {
+  if (!process.env.VERCEL) return;
+  const t = raw.trim();
+  if (!t) return;
+  let u: URL;
+  try {
+    u = new URL(t.replace(/^postgres(ql)?:/i, "http:"));
+  } catch {
+    return;
+  }
+  const host = u.hostname.toLowerCase();
+  const port = u.port || "5432";
+  if (/^db\.[^.]+\.supabase\.co$/.test(host) && port === "5432") {
+    throw new ApiConfigError(
+      "Na Vercel use a connection string do pooler Supabase (porta 6543, host …pooler.supabase.com), nao db.*.supabase.co:5432. Copie em Settings > Database > Transaction pooler e atualize a variavel na Vercel.",
+      503,
+      "Direct Supabase host db.PROJECT.supabase.co:5432 is unreliable from Vercel serverless. Use Transaction pooler URI (port 6543) as PRISMA_DATABASE_URL or DATABASE_URL, then redeploy.",
+    );
+  }
 }
 
 function isLocalDatabaseHost(hostname: string): boolean {
