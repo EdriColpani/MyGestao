@@ -4,6 +4,22 @@
  * @see https://www.prisma.io/docs/orm/prisma-client/setup-and-configuration/databases-connections/pgbouncer
  */
 
+/** Ordem: URI dedicada ao Prisma (Supabase/Vercel) → integração Postgres → genérica. */
+export function getResolvedDatabaseUrlForPrisma(): string | undefined {
+  const a = process.env.PRISMA_DATABASE_URL?.trim();
+  if (a) return a;
+  const b = process.env.POSTGRES_PRISMA_URL?.trim();
+  if (b) return b;
+  const c = process.env.DATABASE_URL?.trim();
+  if (c) return c;
+  return undefined;
+}
+
+function isLocalDatabaseHost(hostname: string): boolean {
+  const h = hostname.toLowerCase();
+  return h === "localhost" || h === "127.0.0.1" || h === "::1";
+}
+
 function isLikelySupabaseTransactionPooler(host: string, port: string): boolean {
   const h = host.toLowerCase();
   if (h.includes("pooler.supabase.com") && (port === "6543" || port === "5432")) return true;
@@ -45,6 +61,10 @@ export function normalizePostgresUrlForServerless(raw: string): string {
   }
 
   const host = u.hostname;
+  if (isLocalDatabaseHost(host)) {
+    return trimmed;
+  }
+
   const port = u.port || "5432";
   const pooler = isLikelySupabaseTransactionPooler(host, port);
   const onVercel = Boolean(process.env.VERCEL);
