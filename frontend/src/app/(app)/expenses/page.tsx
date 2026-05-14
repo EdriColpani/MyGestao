@@ -3,6 +3,7 @@
 import { FormEvent, useEffect, useState } from "react";
 import { CategorySelectWithAdd } from "@/components/CategorySelectWithAdd";
 import { apiJson } from "@/lib/api";
+import { formControlClass } from "@/lib/form-styles";
 import { currentYearMonth, rollingYearMonths, todayISODate } from "@/lib/month";
 import { formatBRL, parseDecimalInput } from "@/lib/money";
 
@@ -120,7 +121,7 @@ export default function ExpensesPage() {
             required
             value={referenceMonth}
             onChange={(e) => setReferenceMonth(e.target.value)}
-            className="mt-1 w-full rounded-lg border border-slate-200 px-3 py-2"
+            className={`mt-1 ${formControlClass}`}
           >
             {months.map((m) => (
               <option key={m.value} value={m.value}>
@@ -135,7 +136,7 @@ export default function ExpensesPage() {
             required
             value={cardId}
             onChange={(e) => setCardId(e.target.value)}
-            className="mt-1 w-full rounded-lg border border-slate-200 px-3 py-2"
+            className={`mt-1 ${formControlClass}`}
           >
             {cards.map((c) => (
               <option key={c.id} value={c.id}>
@@ -163,7 +164,7 @@ export default function ExpensesPage() {
             type="date"
             value={purchaseDate}
             onChange={(e) => setPurchaseDate(e.target.value)}
-            className="mt-1 w-full rounded-lg border border-slate-200 px-3 py-2"
+            className={`mt-1 ${formControlClass}`}
           />
         </div>
         <div className="md:col-span-2">
@@ -172,7 +173,7 @@ export default function ExpensesPage() {
             required
             value={expenseDescription}
             onChange={(e) => setExpenseDescription(e.target.value)}
-            className="mt-1 w-full rounded-lg border border-slate-200 px-3 py-2"
+            className={`mt-1 ${formControlClass}`}
           />
         </div>
         <div>
@@ -181,7 +182,7 @@ export default function ExpensesPage() {
             required
             value={totalAmount}
             onChange={(e) => setTotalAmount(e.target.value)}
-            className="mt-1 w-full rounded-lg border border-slate-200 px-3 py-2"
+            className={`mt-1 ${formControlClass}`}
           />
         </div>
         <div>
@@ -192,7 +193,7 @@ export default function ExpensesPage() {
             min={1}
             value={installments}
             onChange={(e) => setInstallments(e.target.value)}
-            className="mt-1 w-full rounded-lg border border-slate-200 px-3 py-2"
+            className={`mt-1 ${formControlClass}`}
           />
         </div>
         <div>
@@ -201,7 +202,7 @@ export default function ExpensesPage() {
             required
             value={storeName}
             onChange={(e) => setStoreName(e.target.value)}
-            className="mt-1 w-full rounded-lg border border-slate-200 px-3 py-2"
+            className={`mt-1 ${formControlClass}`}
           />
         </div>
         <div className="md:col-span-2">
@@ -211,7 +212,7 @@ export default function ExpensesPage() {
             rows={3}
             value={productDescription}
             onChange={(e) => setProductDescription(e.target.value)}
-            className="mt-1 w-full rounded-lg border border-slate-200 px-3 py-2"
+            className={`mt-1 min-h-[5.5rem] ${formControlClass}`}
           />
         </div>
         {error && <p className="md:col-span-2 text-sm text-red-600">{error}</p>}
@@ -219,7 +220,7 @@ export default function ExpensesPage() {
         <div className="md:col-span-2">
           <button
             type="submit"
-            className="rounded-lg bg-gradient-to-r from-ocean-600 to-lagoon-500 px-5 py-2.5 font-semibold text-white shadow"
+            className="w-full min-h-[2.75rem] rounded-lg bg-gradient-to-r from-ocean-600 to-lagoon-500 px-5 py-2.5 text-base font-semibold text-white shadow sm:w-auto"
           >
             Salvar despesa
           </button>
@@ -228,7 +229,39 @@ export default function ExpensesPage() {
 
       <div>
         <h2 className="text-lg font-semibold text-slate-900">Últimas compras</h2>
-        <div className="mt-3 overflow-x-auto overflow-touch-x rounded-2xl border border-slate-200/80 bg-white/90 shadow-sm">
+
+        <div className="mt-3 space-y-3 md:hidden">
+          {purchases.length === 0 ? (
+            <p className="rounded-2xl border border-slate-200/80 bg-white/90 px-4 py-8 text-center text-sm text-slate-500 shadow-sm">
+              Nenhuma compra registrada ainda.
+            </p>
+          ) : (
+            purchases.map((p) => (
+              <article
+                key={p.id}
+                className="rounded-2xl border border-slate-200/80 bg-white/90 p-4 shadow-sm"
+              >
+                <div className="flex items-start justify-between gap-2">
+                  <p className="text-xs font-semibold uppercase tracking-wide text-slate-500">
+                    {p.referenceMonth.slice(0, 7)}
+                  </p>
+                  <p className="text-base font-semibold text-ocean-800">{formatBRL(Number(p.totalAmount))}</p>
+                </div>
+                <p className="mt-2 text-sm font-medium text-slate-900">{p.expenseDescription}</p>
+                <p className="mt-1 text-sm text-slate-600">{p.storeName}</p>
+                <div className="mt-3 flex flex-wrap gap-x-3 gap-y-1 text-xs text-slate-500">
+                  <span>{p.card.name}</span>
+                  <span>·</span>
+                  <span>{p.category.name}</span>
+                  <span>·</span>
+                  <span>{p.installments}x</span>
+                </div>
+              </article>
+            ))
+          )}
+        </div>
+
+        <div className="mt-3 hidden overflow-x-auto overflow-touch-x rounded-2xl border border-slate-200/80 bg-white/90 shadow-sm md:block">
           <table className="min-w-full text-left text-sm">
             <thead className="border-b border-slate-200 bg-slate-50/80 text-slate-600">
               <tr>

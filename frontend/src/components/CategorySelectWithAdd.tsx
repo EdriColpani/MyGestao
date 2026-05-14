@@ -82,7 +82,7 @@ export function CategorySelectWithAdd({
           required={selectRequired}
           value={value}
           onChange={(e) => onChange(e.target.value)}
-          className="min-w-0 flex-1 rounded-lg border border-slate-200 px-3 py-2"
+          className="min-w-0 flex-1 rounded-lg border border-slate-200 bg-white px-3 py-2.5 text-base text-slate-900 shadow-sm [color-scheme:light] min-h-[2.75rem]"
         >
           {emptyOption ? (
             <option value={emptyOption.value}>{emptyOption.label}</option>
@@ -98,7 +98,7 @@ export function CategorySelectWithAdd({
           onClick={openDialog}
           title="Nova categoria"
           aria-label="Adicionar nova categoria"
-          className="shrink-0 rounded-lg border border-slate-200 bg-white px-3 py-2 text-lg font-semibold leading-none text-ocean-700 shadow-sm transition hover:bg-slate-50 active:bg-slate-100"
+          className="inline-flex h-[2.75rem] min-w-[2.75rem] shrink-0 items-center justify-center rounded-lg border border-ocean-200 bg-ocean-50 text-lg font-bold leading-none text-ocean-700 shadow-sm transition hover:bg-ocean-100 active:bg-ocean-200"
         >
           +
         </button>

@@ -2,6 +2,7 @@
 
 import { FormEvent, useEffect, useState } from "react";
 import { apiJson } from "@/lib/api";
+import { formControlClass } from "@/lib/form-styles";
 import { currentYearMonth, rollingYearMonths, todayISODate } from "@/lib/month";
 import { formatBRL } from "@/lib/money";
 
@@ -108,7 +109,7 @@ export default function PaymentsPage() {
           <select
             value={referenceMonth}
             onChange={(e) => setReferenceMonth(e.target.value)}
-            className="mt-1 w-full rounded-lg border border-slate-200 px-3 py-2"
+            className={`mt-1 ${formControlClass}`}
           >
             {months.map((m) => (
               <option key={m.value} value={m.value}>
@@ -122,7 +123,7 @@ export default function PaymentsPage() {
           <select
             value={cardId}
             onChange={(e) => setCardId(e.target.value)}
-            className="mt-1 w-full rounded-lg border border-slate-200 px-3 py-2"
+            className={`mt-1 ${formControlClass}`}
           >
             {cards.map((c) => (
               <option key={c.id} value={c.id}>
@@ -137,7 +138,7 @@ export default function PaymentsPage() {
             type="date"
             value={paymentDate}
             onChange={(e) => setPaymentDate(e.target.value)}
-            className="mt-1 w-full rounded-lg border border-slate-200 px-3 py-2"
+            className={`mt-1 ${formControlClass}`}
           />
         </div>
       </div>
@@ -145,7 +146,43 @@ export default function PaymentsPage() {
       {error && <p className="text-sm text-red-600">{error}</p>}
       {msg && <p className="text-sm text-emerald-700">{msg}</p>}
 
-      <div className="overflow-x-auto overflow-touch-x rounded-2xl border border-slate-200/80 bg-white/90 shadow-sm">
+      <div className="space-y-3 md:hidden">
+        {rows.length === 0 ? (
+          <p className="rounded-2xl border border-slate-200/80 bg-white/90 px-4 py-8 text-center text-sm text-slate-500 shadow-sm">
+            Nenhuma parcela pendente para este mês e cartão.
+          </p>
+        ) : (
+          rows.map((r) => (
+            <article
+              key={r.id}
+              className="rounded-2xl border border-slate-200/80 bg-white/90 p-4 shadow-sm"
+            >
+              <div className="flex items-start justify-between gap-3">
+                <label className="flex cursor-pointer items-start gap-3">
+                  <input
+                    type="checkbox"
+                    className="mt-1 h-5 w-5 shrink-0 rounded border-slate-300 text-ocean-600 focus:ring-ocean-500"
+                    checked={!!selected[r.id]}
+                    onChange={() => toggle(r.id)}
+                  />
+                  <span>
+                    <span className="block text-sm font-semibold text-slate-900">
+                      Parcela {r.installmentNumber}/{r.totalInstallments}
+                    </span>
+                    <span className="mt-1 block text-sm text-slate-700">{r.purchase.expenseDescription}</span>
+                    <span className="mt-1 block text-xs text-slate-500">{r.purchase.storeName}</span>
+                  </span>
+                </label>
+                <span className="shrink-0 text-base font-semibold text-ocean-800">
+                  {formatBRL(Number(r.amount))}
+                </span>
+              </div>
+            </article>
+          ))
+        )}
+      </div>
+
+      <div className="hidden overflow-x-auto overflow-touch-x rounded-2xl border border-slate-200/80 bg-white/90 shadow-sm md:block">
         <table className="min-w-full text-left text-sm">
           <thead className="border-b border-slate-200 bg-slate-50/80 text-slate-600">
             <tr>
@@ -197,7 +234,7 @@ export default function PaymentsPage() {
         <button
           type="submit"
           disabled={rows.length === 0 || selectedIds.length === 0}
-          className="rounded-lg bg-gradient-to-r from-ocean-600 to-lagoon-500 px-6 py-3 font-semibold text-white shadow disabled:opacity-50"
+          className="w-full min-h-[2.75rem] rounded-lg bg-gradient-to-r from-ocean-600 to-lagoon-500 px-6 py-3 text-base font-semibold text-white shadow disabled:opacity-50 md:w-auto md:min-h-0"
         >
           Processar pagamento
         </button>
