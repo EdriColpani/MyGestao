@@ -1,9 +1,10 @@
 import { createServerClient } from "@supabase/ssr";
+import { getSupabaseAnonKey, getSupabasePublicUrl } from "@/lib/supabase/public-env";
 import { NextResponse, type NextRequest } from "next/server";
 
 export async function middleware(request: NextRequest) {
-  const url = process.env.NEXT_PUBLIC_SUPABASE_URL?.trim();
-  const anon = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY?.trim();
+  const url = getSupabasePublicUrl();
+  const anon = getSupabaseAnonKey();
   if (!url || !anon) {
     return NextResponse.next();
   }

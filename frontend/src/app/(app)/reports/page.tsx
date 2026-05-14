@@ -13,7 +13,7 @@ import {
 } from "recharts";
 import { CategorySelectWithAdd } from "@/components/CategorySelectWithAdd";
 import { apiJson } from "@/lib/api";
-import { currentYearMonth, rollingYearMonths } from "@/lib/month";
+import { currentYearMonth } from "@/lib/month";
 import { formatBRL } from "@/lib/money";
 
 type Card = { id: string; name: string };
@@ -49,8 +49,6 @@ export default function ReportsPage() {
   const [installments, setInstallments] = useState<InstallmentRow[]>([]);
   const [chart, setChart] = useState<{ month: string; income: number; expense: number }[]>([]);
   const [error, setError] = useState<string | null>(null);
-
-  const months = rollingYearMonths(24);
 
   useEffect(() => {
     Promise.all([apiJson<Card[]>("/cards"), apiJson<Category[]>("/categories?type=expense")])
@@ -105,32 +103,44 @@ export default function ReportsPage() {
 
       <div className="grid gap-4 rounded-2xl border border-slate-200/80 bg-white/90 p-6 shadow-sm backdrop-blur md:grid-cols-2 lg:grid-cols-3">
         <div>
-          <label className="text-sm font-medium text-slate-700">Mês inicial</label>
-          <select
+          <label htmlFor="reports-from-month" className="text-sm font-medium text-slate-700">
+            Mês inicial
+          </label>
+          <input
+            id="reports-from-month"
+            type="month"
+            min="2000-01"
+            max="2100-12"
             value={fromMonth}
-            onChange={(e) => setFromMonth(e.target.value)}
-            className="mt-1 w-full rounded-lg border border-slate-200 px-3 py-2"
-          >
-            {months.map((m) => (
-              <option key={m.value} value={m.value}>
-                {m.label}
-              </option>
-            ))}
-          </select>
+            onChange={(e) => {
+              const v = e.target.value;
+              if (!v) return;
+              setFromMonth(v);
+              if (v > toMonth) setToMonth(v);
+            }}
+            className="mt-1 w-full rounded-lg border border-slate-200 px-3 py-2 text-slate-900"
+          />
+          <p className="mt-1 text-xs text-slate-500">Inclui todo o mês de referência (cartão / parcelas).</p>
         </div>
         <div>
-          <label className="text-sm font-medium text-slate-700">Mês final</label>
-          <select
+          <label htmlFor="reports-to-month" className="text-sm font-medium text-slate-700">
+            Mês final
+          </label>
+          <input
+            id="reports-to-month"
+            type="month"
+            min="2000-01"
+            max="2100-12"
             value={toMonth}
-            onChange={(e) => setToMonth(e.target.value)}
-            className="mt-1 w-full rounded-lg border border-slate-200 px-3 py-2"
-          >
-            {months.map((m) => (
-              <option key={m.value} value={m.value}>
-                {m.label}
-              </option>
-            ))}
-          </select>
+            onChange={(e) => {
+              const v = e.target.value;
+              if (!v) return;
+              setToMonth(v);
+              if (v < fromMonth) setFromMonth(v);
+            }}
+            className="mt-1 w-full rounded-lg border border-slate-200 px-3 py-2 text-slate-900"
+          />
+          <p className="mt-1 text-xs text-slate-500">Até ao fim deste mês (inclusive).</p>
         </div>
         <div>
           <label className="text-sm font-medium text-slate-700">Cartão</label>

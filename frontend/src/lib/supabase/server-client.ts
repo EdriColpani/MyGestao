@@ -1,19 +1,14 @@
 import { createServerClient } from "@supabase/ssr";
 import { cookies } from "next/headers";
+import { requireSupabasePublicConfig } from "./public-env";
 
 /** Cliente Supabase no servidor (Server Components, Route Handlers) com cookies de sessão. */
 export async function createSupabaseServerClient() {
-  const url = process.env.NEXT_PUBLIC_SUPABASE_URL;
-  const key = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
-  if (!url?.trim() || !key?.trim()) {
-    throw new Error(
-      "Supabase: defina NEXT_PUBLIC_SUPABASE_URL e NEXT_PUBLIC_SUPABASE_ANON_KEY.",
-    );
-  }
+  const { url, anonKey } = requireSupabasePublicConfig();
 
   const cookieStore = await cookies();
 
-  return createServerClient(url.trim(), key.trim(), {
+  return createServerClient(url, anonKey, {
     cookies: {
       getAll() {
         return cookieStore.getAll();
