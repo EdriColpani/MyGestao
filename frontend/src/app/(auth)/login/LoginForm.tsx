@@ -4,8 +4,9 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { FormEvent, useEffect, useState } from "react";
 import { BrandLogo } from "@/components/BrandLogo";
-import { apiFetch } from "@/lib/api";
-import { setTokens } from "@/lib/auth-storage";
+import { resolveApiFetchUrl } from "@/lib/api";
+import { clearTokens } from "@/lib/auth-storage";
+import { createSupabaseBrowserClient } from "@/lib/supabase/browser-client";
 
 type Props = {
   redirectTo: string;
@@ -28,30 +29,33 @@ export function LoginForm({ redirectTo }: Props) {
     setError(null);
     setLoading(true);
     try {
-      const res = await apiFetch("/auth/login", {
-        method: "POST",
-        body: JSON.stringify({ email, password }),
-      });
-      if (!res.ok) {
-        let message = "Falha no login";
-        const ct = res.headers.get("content-type") ?? "";
-        if (ct.includes("application/json")) {
-          try {
-            const body = (await res.json()) as { message?: string };
-            if (body.message) message = body.message;
-          } catch {
-            message = `Erro ${res.status} (resposta invalida).`;
-          }
-        } else {
-          message = `Erro ${res.status}. Tente mais tarde.`;
-        }
-        throw new Error(message);
+      const supabase = createSupabaseBrowserClient();
+      const { data, error: signErr } = await supabase.auth.signInWithPassword({ email, password });
+      if (signErr) {
+        throw new Error(signErr.message);
       }
-      const data = (await res.json()) as {
-        accessToken: string;
-        refreshToken: string;
-      };
-      setTokens(data.accessToken, data.refreshToken);
+      const session = data.session;
+      if (!session?.access_token) {
+        throw new Error("Sessao nao iniciada. Confirme o email no Supabase se a confirmacao estiver ativa.");
+      }
+
+      const sync = await fetch(resolveApiFetchUrl("/auth/sync-profile"), {
+        method: "POST",
+        headers: { Authorization: `Bearer ${session.access_token}` },
+      });
+      if (!sync.ok) {
+        await supabase.auth.signOut();
+        let msg = "Falha ao preparar a conta";
+        try {
+          const body = (await sync.json()) as { message?: string };
+          if (body.message) msg = body.message;
+        } catch {
+          msg = `Erro ${sync.status}`;
+        }
+        throw new Error(msg);
+      }
+
+      clearTokens();
       router.replace(redirectTo);
     } catch (err) {
       setError(err instanceof Error ? err.message : "Erro");
