@@ -64,11 +64,10 @@ async function requireAccess(request: NextRequest): Promise<{ user: JwtUserPaylo
 
 /** Roteador HTTP — mesmas rotas que o antigo Fastify (`/auth/...`, `/cards`, …). */
 export async function handleApiRequest(request: NextRequest, segments: string[]): Promise<NextResponse> {
-  ensureApiRuntimeEnv();
-  const method = request.method;
-  const url = new URL(request.url);
-
   try {
+    ensureApiRuntimeEnv();
+    const method = request.method;
+    const url = new URL(request.url);
     if (method === "POST" && segments[0] === "auth" && segments[1] === "register") {
       const bodySchema = z.object({
         name: z.string().min(3),
