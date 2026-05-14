@@ -1,11 +1,12 @@
 import { createClient } from "@supabase/supabase-js";
+import { getSupabaseAnonKey, getSupabasePublicUrl } from "@/lib/supabase/public-env";
 
 /** Valida access JWT do Supabase (sem service role). */
 export async function verifySupabaseAccessToken(
   jwt: string,
 ): Promise<{ sub: string; email: string } | null> {
-  const url = process.env.NEXT_PUBLIC_SUPABASE_URL?.trim();
-  const anon = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY?.trim();
+  const url = getSupabasePublicUrl();
+  const anon = getSupabaseAnonKey();
   if (!url || !anon) return null;
 
   const supabase = createClient(url, anon);
