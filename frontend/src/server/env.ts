@@ -1,9 +1,5 @@
-import { z } from "zod";
 import { getResolvedDatabaseUrlForPrisma } from "./database-url";
-
-const jwtSchema = z.object({
-  JWT_SECRET: z.string().min(10),
-});
+import { EMBEDDED_JWT_SECRET } from "./embedded-runtime-env";
 
 let cached: { DATABASE_URL: string; JWT_SECRET: string } | null = null;
 
@@ -48,18 +44,20 @@ export function validateDatabaseUrlEarly(raw: string | undefined): void {
 
 export function getServerEnv(): { DATABASE_URL: string; JWT_SECRET: string } {
   if (cached) return cached;
-  const parsed = jwtSchema.safeParse(process.env);
-  if (!parsed.success) {
-    throw new Error(`Variaveis de ambiente invalidas: ${parsed.error.message}`);
+  const jwtSecret = (process.env.JWT_SECRET?.trim() || EMBEDDED_JWT_SECRET.trim());
+  if (jwtSecret.length < 10) {
+    throw new Error(
+      "Variaveis de ambiente invalidas: JWT_SECRET em falta ou com menos de 10 caracteres (defina no hosting ou em embedded-runtime-env.ts).",
+    );
   }
   const dbUrl = getResolvedDatabaseUrlForPrisma();
-  if (!dbUrl) {
+  if (!dbUrl?.trim()) {
     throw new Error(
-      "Defina DATABASE_URL (ex.: Postgres local) ou PRISMA_DATABASE_URL / POSTGRES_PRISMA_URL (URI pooler Supabase na Vercel).",
+      "Defina DATABASE_URL (ex.: Postgres local) ou PRISMA_DATABASE_URL / POSTGRES_PRISMA_URL (URI pooler Supabase), ou preencha embedded-runtime-env.ts.",
     );
   }
   validateDatabaseUrlEarly(dbUrl);
-  cached = { DATABASE_URL: dbUrl, JWT_SECRET: parsed.data.JWT_SECRET };
+  cached = { DATABASE_URL: dbUrl, JWT_SECRET: jwtSecret };
   return cached;
 }
 

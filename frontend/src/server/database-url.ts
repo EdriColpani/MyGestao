@@ -5,8 +5,9 @@
  */
 
 import { ApiConfigError } from "./api-errors";
+import { EMBEDDED_DATABASE_URL } from "./embedded-runtime-env";
 
-/** Ordem: URI dedicada ao Prisma (Supabase/Vercel) → integração Postgres → genérica. */
+/** Ordem: env do hosting → embutido (`embedded-runtime-env.ts`). */
 export function getResolvedDatabaseUrlForPrisma(): string | undefined {
   const a = process.env.PRISMA_DATABASE_URL?.trim();
   if (a) return a;
@@ -14,7 +15,8 @@ export function getResolvedDatabaseUrlForPrisma(): string | undefined {
   if (b) return b;
   const c = process.env.DATABASE_URL?.trim();
   if (c) return c;
-  return undefined;
+  const emb = EMBEDDED_DATABASE_URL.trim();
+  return emb || undefined;
 }
 
 /**

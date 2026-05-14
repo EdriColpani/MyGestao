@@ -3,6 +3,7 @@ import { Prisma } from "@prisma/client";
 import bcrypt from "bcryptjs";
 import { NextResponse, type NextRequest } from "next/server";
 import { getSupabaseAnonKey, getSupabasePublicUrl } from "@/lib/supabase/public-env";
+import { ApiConfigError } from "@/server/api-errors";
 import { getResolvedDatabaseUrlForPrisma } from "@/server/database-url";
 import { ensureApiRuntimeEnv, prisma } from "@/server/prisma";
 
@@ -26,7 +27,12 @@ const DEFAULT_CATEGORIES: { name: string; type: "income" | "expense" }[] = [
 export async function POST(request: NextRequest) {
   try {
     ensureApiRuntimeEnv();
-  } catch {
+  } catch (e) {
+    if (e instanceof ApiConfigError) {
+      console.error("[sync-profile] config", e.logDetail ?? e.message);
+      return NextResponse.json({ message: e.message }, { status: e.statusCode });
+    }
+    console.error("[sync-profile] ensureApiRuntimeEnv", e);
     return NextResponse.json({ message: "Servico indisponivel" }, { status: 503 });
   }
 

@@ -6,11 +6,12 @@ import {
   normalizePostgresUrlForServerless,
 } from "./database-url";
 import { validateDatabaseUrlEarly } from "./env";
+import { EMBEDDED_JWT_SECRET } from "./embedded-runtime-env";
 
 function assertVercelServerEnv(): void {
   if (!process.env.VERCEL) return;
   const db = getResolvedDatabaseUrlForPrisma();
-  const jwt = process.env.JWT_SECRET?.trim();
+  const jwt = process.env.JWT_SECRET?.trim() || EMBEDDED_JWT_SECRET.trim();
   if (!db) {
     throw new ApiConfigError(
       "Servico temporariamente indisponivel. Tente mais tarde.",
