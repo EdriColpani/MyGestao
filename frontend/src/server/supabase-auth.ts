@@ -9,11 +9,15 @@ export async function verifySupabaseAccessToken(
   const anon = getSupabaseAnonKey();
   if (!url || !anon) return null;
 
-  const supabase = createClient(url, anon);
-  const {
-    data: { user },
-    error,
-  } = await supabase.auth.getUser(jwt);
-  if (error || !user?.id) return null;
-  return { sub: user.id, email: user.email ?? "" };
+  try {
+    const supabase = createClient(url, anon);
+    const {
+      data: { user },
+      error,
+    } = await supabase.auth.getUser(jwt);
+    if (error || !user?.id) return null;
+    return { sub: user.id, email: user.email ?? "" };
+  } catch {
+    return null;
+  }
 }
