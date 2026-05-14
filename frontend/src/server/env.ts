@@ -1,11 +1,11 @@
 import { z } from "zod";
+import { getResolvedDatabaseUrlForPrisma } from "./database-url";
 
-const envSchema = z.object({
-  DATABASE_URL: z.string().min(1),
+const jwtSchema = z.object({
   JWT_SECRET: z.string().min(10),
 });
 
-let cached: z.infer<typeof envSchema> | null = null;
+let cached: { DATABASE_URL: string; JWT_SECRET: string } | null = null;
 
 /**
  * Validação leve antes do Prisma ligar — o erro "invalid port number" costuma ser
@@ -46,15 +46,20 @@ export function validateDatabaseUrlEarly(raw: string | undefined): void {
   }
 }
 
-export function getServerEnv(): z.infer<typeof envSchema> {
+export function getServerEnv(): { DATABASE_URL: string; JWT_SECRET: string } {
   if (cached) return cached;
-  const parsed = envSchema.safeParse(process.env);
+  const parsed = jwtSchema.safeParse(process.env);
   if (!parsed.success) {
     throw new Error(`Variaveis de ambiente invalidas: ${parsed.error.message}`);
   }
-  const dbUrl = parsed.data.DATABASE_URL;
+  const dbUrl = getResolvedDatabaseUrlForPrisma();
+  if (!dbUrl) {
+    throw new Error(
+      "Defina DATABASE_URL (ex.: Postgres local) ou PRISMA_DATABASE_URL / POSTGRES_PRISMA_URL (URI pooler Supabase na Vercel).",
+    );
+  }
   validateDatabaseUrlEarly(dbUrl);
-  cached = parsed.data;
+  cached = { DATABASE_URL: dbUrl, JWT_SECRET: parsed.data.JWT_SECRET };
   return cached;
 }
 

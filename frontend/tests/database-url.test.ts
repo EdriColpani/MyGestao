@@ -1,5 +1,23 @@
 import { describe, expect, it, vi } from "vitest";
-import { normalizePostgresUrlForServerless } from "@/server/database-url";
+import { getResolvedDatabaseUrlForPrisma, normalizePostgresUrlForServerless } from "@/server/database-url";
+
+describe("getResolvedDatabaseUrlForPrisma", () => {
+  it("prioriza PRISMA_DATABASE_URL", () => {
+    vi.stubEnv("DATABASE_URL", "postgresql://a:a@localhost:5432/a");
+    vi.stubEnv("PRISMA_DATABASE_URL", "postgresql://b:b@pooler:6543/p");
+    vi.stubEnv("POSTGRES_PRISMA_URL", "");
+    expect(getResolvedDatabaseUrlForPrisma()).toContain("pooler");
+    vi.unstubAllEnvs();
+  });
+
+  it("usa DATABASE_URL se for a unica", () => {
+    vi.stubEnv("PRISMA_DATABASE_URL", "");
+    vi.stubEnv("POSTGRES_PRISMA_URL", "");
+    vi.stubEnv("DATABASE_URL", "postgresql://u:p@localhost:5432/db");
+    expect(getResolvedDatabaseUrlForPrisma()).toContain("localhost");
+    vi.unstubAllEnvs();
+  });
+});
 
 describe("normalizePostgresUrlForServerless", () => {
   it("adiciona pgbouncer, sslmode e connection_limit para pooler Supabase na Vercel", () => {
@@ -25,6 +43,13 @@ describe("normalizePostgresUrlForServerless", () => {
 
   it("fora da vercel nao forca connection_limit em host aleatorio", () => {
     vi.stubEnv("VERCEL", "");
+    const raw = "postgresql://u:p@localhost:5432/mydb";
+    expect(normalizePostgresUrlForServerless(raw)).toBe(raw);
+    vi.unstubAllEnvs();
+  });
+
+  it("localhost nunca recebe parametros de pooler (modo local)", () => {
+    vi.stubEnv("VERCEL", "1");
     const raw = "postgresql://u:p@localhost:5432/mydb";
     expect(normalizePostgresUrlForServerless(raw)).toBe(raw);
     vi.unstubAllEnvs();

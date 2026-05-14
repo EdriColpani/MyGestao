@@ -4,6 +4,7 @@ generator client {
 }
 
 datasource db {
+  // `prisma migrate` usa esta variável. Em runtime a app resolve PRISMA_DATABASE_URL → POSTGRES_PRISMA_URL → DATABASE_URL (ver `src/server/database-url.ts`).
   provider = "postgresql"
   url      = env("DATABASE_URL")
 }
