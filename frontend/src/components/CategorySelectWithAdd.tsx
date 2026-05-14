@@ -17,6 +17,8 @@ type Props = {
   /** Quando definido, primeira opção do select (ex.: filtro "Todas"). */
   emptyOption?: EmptyOption;
   selectRequired?: boolean;
+  /** Desativa select e botão + (ex.: durante envio do formulário pai). */
+  disabled?: boolean;
 };
 
 export function CategorySelectWithAdd({
@@ -28,6 +30,7 @@ export function CategorySelectWithAdd({
   reloadCategories,
   emptyOption,
   selectRequired,
+  disabled = false,
 }: Props) {
   const [open, setOpen] = useState(false);
   const [newName, setNewName] = useState("");
@@ -45,6 +48,7 @@ export function CategorySelectWithAdd({
   }, [open]);
 
   const openDialog = () => {
+    if (disabled) return;
     setDialogError(null);
     setNewName("");
     setOpen(true);
@@ -80,6 +84,7 @@ export function CategorySelectWithAdd({
       <div className="mt-1 flex gap-2">
         <select
           required={selectRequired}
+          disabled={disabled}
           value={value}
           onChange={(e) => onChange(e.target.value)}
           className="min-w-0 flex-1 rounded-lg border border-slate-200 bg-white px-3 py-2.5 text-base text-slate-900 shadow-sm [color-scheme:light] min-h-[2.75rem]"
@@ -95,6 +100,7 @@ export function CategorySelectWithAdd({
         </select>
         <button
           type="button"
+          disabled={disabled}
           onClick={openDialog}
           title="Nova categoria"
           aria-label="Adicionar nova categoria"
