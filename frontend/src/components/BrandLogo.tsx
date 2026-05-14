@@ -28,7 +28,9 @@ export function BrandLogo({
       alt="MyGestão"
       width={320}
       height={96}
-      className={`h-auto w-full max-w-[min(100%,14rem)] object-contain object-left ${imgClassName}`}
+      className={`h-auto w-full object-contain object-left ${
+        imgClassName?.trim() ? imgClassName : "max-w-[min(100%,14rem)]"
+      }`}
       priority={priority}
     />
   );

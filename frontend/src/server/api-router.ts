@@ -409,6 +409,7 @@ export async function handleApiRequest(request: NextRequest, segments: string[])
         totalAmount: z.number().positive(),
         installments: z.number().int().min(1),
         purchaseDate: z.string().regex(/^\d{4}-\d{2}-\d{2}$/),
+        dueDate: z.string().regex(/^\d{4}-\d{2}-\d{2}$/),
         storeName: z.string().min(2),
         productDescription: z.string().min(2),
         cardId: z.string().uuid(),
@@ -436,6 +437,7 @@ export async function handleApiRequest(request: NextRequest, segments: string[])
               totalAmount: body.totalAmount,
               installments: body.installments,
               purchaseDate: new Date(body.purchaseDate),
+              dueDate: new Date(body.dueDate),
               storeName: body.storeName,
               productDescription: body.productDescription,
             },
@@ -467,13 +469,9 @@ export async function handleApiRequest(request: NextRequest, segments: string[])
             status: query.status,
           },
           include: {
-            purchase: {
-              select: {
-                expenseDescription: true,
-                storeName: true,
-                productDescription: true,
-              },
-            },
+            // Objeto completo evita erro de validacao se o cliente Prisma no servidor
+            // estiver desatualizado em relacao ao schema (select com dueDate falhava).
+            purchase: true,
           },
           orderBy: { installmentNumber: "asc" },
         }),
@@ -487,11 +485,17 @@ export async function handleApiRequest(request: NextRequest, segments: string[])
         referenceMonth: z.string().regex(/^\d{4}-\d{2}$/),
         paymentDate: z.string().regex(/^\d{4}-\d{2}-\d{2}$/),
         installmentIds: z.array(z.string().uuid()).min(1),
+        interestAmount: z.number().nonnegative().optional().default(0),
+        lateFeeAmount: z.number().nonnegative().optional().default(0),
       });
       const body = bodySchema.parse(await readJson(request));
       const referenceMonth = toMonthStart(body.referenceMonth);
-      const result = await withRls(userId, (tx) =>
-        tx.$queryRaw<{ payment_id: string }[]>`
+      const interest = new Prisma.Decimal(String(body.interestAmount ?? 0));
+      const lateFee = new Prisma.Decimal(String(body.lateFeeAmount ?? 0));
+
+      try {
+        const paymentOut = await withRls(userId, async (tx) => {
+          const result = await tx.$queryRaw<{ payment_id: string }[]>`
       SELECT fn_process_invoice_payment(
         ${userId}::uuid,
         ${body.cardId}::uuid,
@@ -499,19 +503,57 @@ export async function handleApiRequest(request: NextRequest, segments: string[])
         ${new Date(body.paymentDate)}::date,
         ${body.installmentIds}::uuid[]
       ) AS payment_id
-    `,
-      );
-      const paymentId = result[0]?.payment_id;
-      if (!paymentId) {
-        return NextResponse.json({ message: "Pagamento nao processado" }, { status: 400 });
+    `;
+          const paymentId = result[0]?.payment_id;
+          if (!paymentId) {
+            throw Object.assign(new Error("Pagamento nao processado"), { status: 400 });
+          }
+
+          let row = await tx.cardInvoicePayment.findFirst({
+            where: { id: paymentId, userId },
+            include: { items: true },
+          });
+          if (!row) {
+            throw Object.assign(new Error("Pagamento nao encontrado"), { status: 400 });
+          }
+
+          const extra = interest.add(lateFee);
+          if (extra.gt(0)) {
+            await tx.cardInvoicePayment.update({
+              where: { id: paymentId },
+              data: {
+                interestAmount: interest,
+                lateFeeAmount: lateFee,
+                paidTotalAmount: row.paidTotalAmount.add(extra),
+              },
+            });
+            await tx.cashFlow.create({
+              data: {
+                userId,
+                movementType: "expense",
+                originType: "invoice_payment_fees",
+                originId: paymentId,
+                referenceMonth,
+                movementDate: new Date(body.paymentDate),
+                amount: extra,
+                description: "Juros e mora (pagamento de fatura do cartao)",
+              },
+            });
+            row = await tx.cardInvoicePayment.findFirst({
+              where: { id: paymentId, userId },
+              include: { items: true },
+            });
+          }
+          return row;
+        });
+        return NextResponse.json(paymentOut);
+      } catch (e) {
+        const err = e as Error & { status?: number };
+        if (err.status === 400) {
+          return NextResponse.json({ message: err.message }, { status: 400 });
+        }
+        throw e;
       }
-      const payment = await withRls(userId, (tx) =>
-        tx.cardInvoicePayment.findFirst({
-          where: { id: paymentId, userId },
-          include: { items: true },
-        }),
-      );
-      return NextResponse.json(payment);
     }
 
     if (method === "GET" && segments[0] === "reports" && segments[1] === "payments") {

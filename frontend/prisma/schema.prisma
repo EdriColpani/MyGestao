@@ -88,6 +88,8 @@ model ExpensePurchase {
   totalAmount        Decimal              @map("total_amount") @db.Decimal(14, 2)
   installments       Int
   purchaseDate       DateTime             @map("purchase_date") @db.Date
+  /// Data de vencimento da cobranca (cadastro novo; legado pode ser null).
+  dueDate            DateTime?            @map("due_date") @db.Date
   storeName          String               @map("store_name") @db.VarChar(255)
   productDescription String               @map("product_description")
   createdAt          DateTime             @default(now()) @map("created_at")
@@ -128,6 +130,10 @@ model CardInvoicePayment {
   cardId          String                   @map("card_id") @db.Uuid
   referenceMonth  DateTime                 @map("reference_month") @db.Date
   paidTotalAmount Decimal                  @map("paid_total_amount") @db.Decimal(14, 2)
+  /// Juros em atraso (opcional, no processamento do pagamento).
+  interestAmount  Decimal                  @default(0) @map("interest_amount") @db.Decimal(14, 2)
+  /// Mora / multa por atraso (opcional).
+  lateFeeAmount   Decimal                  @default(0) @map("late_fee_amount") @db.Decimal(14, 2)
   paymentDate     DateTime                 @map("payment_date") @db.Date
   notes           String?
   createdAt       DateTime                 @default(now()) @map("created_at")

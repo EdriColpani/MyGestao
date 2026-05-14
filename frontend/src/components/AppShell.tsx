@@ -88,8 +88,8 @@ export function AppShell({ children }: { children: React.ReactNode }) {
         </aside>
 
         <div className="flex min-h-dvh min-h-screen min-w-0 flex-1 flex-col">
-          <header className="sticky top-0 z-30 border-b border-slate-200/80 bg-white/85 px-3 py-3 backdrop-blur-md supports-[backdrop-filter]:bg-white/70 md:hidden">
-            <div className="flex items-center gap-2">
+          <header className="sticky top-0 z-30 border-b border-slate-200/80 bg-white/90 px-3 pb-3 pt-2.5 backdrop-blur-md supports-[backdrop-filter]:bg-white/75 md:hidden">
+            <div className="flex items-center justify-between gap-2">
               <button
                 type="button"
                 onClick={() => setMenuOpen(true)}
@@ -104,21 +104,24 @@ export function AppShell({ children }: { children: React.ReactNode }) {
                   <span className="block h-0.5 w-5 rounded-full bg-current" />
                 </span>
               </button>
-              <div className="min-w-0 flex-1">
-                <BrandLogo
-                  href="/dashboard"
-                  imgClassName="max-h-8 max-w-[10rem] object-left"
-                  linkClassName="focus-visible:ring-ocean-600 focus-visible:ring-offset-white"
-                />
-                <p className="truncate text-xs text-slate-500">Finanças pessoais</p>
-              </div>
               <button
                 type="button"
                 onClick={logout}
-                className="shrink-0 rounded-lg px-3 py-2 text-sm font-medium text-emerald-800 underline-offset-2 active:text-emerald-950"
+                className="shrink-0 rounded-lg px-3 py-2 text-sm font-semibold text-emerald-800 active:text-emerald-950"
               >
                 Sair
               </button>
+            </div>
+            <div className="mt-2 flex flex-col items-center px-1">
+              <BrandLogo
+                href="/dashboard"
+                imgClassName="mx-auto min-h-[3rem] max-h-[4.5rem] w-full max-w-[min(100%,20rem)] object-contain"
+                linkClassName="flex w-full justify-center focus-visible:ring-ocean-600 focus-visible:ring-offset-white"
+                priority
+              />
+              <p className="mt-1.5 text-center text-[11px] font-semibold uppercase tracking-wide text-slate-600">
+                Finanças pessoais
+              </p>
             </div>
           </header>
 
@@ -137,7 +140,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
                 <div className="flex items-center justify-between gap-2 border-b border-white/10 px-4 py-3">
                   <BrandLogo
                     href="/dashboard"
-                    imgClassName="max-w-[12rem]"
+                    imgClassName="max-h-12 max-w-[14rem]"
                     onLinkClick={() => setMenuOpen(false)}
                   />
                   <button
