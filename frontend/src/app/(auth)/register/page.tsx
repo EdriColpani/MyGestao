@@ -4,7 +4,9 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { FormEvent, useState } from "react";
 import { BrandLogo } from "@/components/BrandLogo";
-import { apiFetch } from "@/lib/api";
+import { resolveApiFetchUrl } from "@/lib/api";
+import { clearTokens } from "@/lib/auth-storage";
+import { createSupabaseBrowserClient } from "@/lib/supabase/browser-client";
 
 export default function RegisterPage() {
   const router = useRouter();
@@ -19,26 +21,40 @@ export default function RegisterPage() {
     setError(null);
     setLoading(true);
     try {
-      const res = await apiFetch("/auth/register", {
-        method: "POST",
-        body: JSON.stringify({ name, email, password }),
+      const supabase = createSupabaseBrowserClient();
+      const { data, error: signErr } = await supabase.auth.signUp({
+        email,
+        password,
+        options: { data: { name } },
       });
-      if (!res.ok) {
-        let message = "Falha no cadastro";
-        const ct = res.headers.get("content-type") ?? "";
-        if (ct.includes("application/json")) {
-          try {
-            const body = (await res.json()) as { message?: string };
-            if (body.message) message = body.message;
-          } catch {
-            message = `Erro ${res.status} (resposta invalida).`;
-          }
-        } else {
-          message = `Erro ${res.status}. Tente mais tarde.`;
-        }
-        throw new Error(message);
+      if (signErr) {
+        throw new Error(signErr.message);
       }
-      router.replace("/login");
+
+      if (data.session?.access_token) {
+        const sync = await fetch(resolveApiFetchUrl("/auth/sync-profile"), {
+          method: "POST",
+          headers: { Authorization: `Bearer ${data.session.access_token}` },
+        });
+        if (!sync.ok) {
+          await supabase.auth.signOut();
+          let msg = "Conta criada mas falhou a sincronizacao";
+          try {
+            const body = (await sync.json()) as { message?: string };
+            if (body.message) msg = body.message;
+          } catch {
+            msg = `Erro ${sync.status}`;
+          }
+          throw new Error(msg);
+        }
+        clearTokens();
+        router.replace("/dashboard");
+        return;
+      }
+
+      setError(
+        "Conta criada. Se o Supabase exigir confirmacao por email, abra a mensagem e confirme antes de entrar.",
+      );
     } catch (err) {
       setError(err instanceof Error ? err.message : "Erro");
     } finally {

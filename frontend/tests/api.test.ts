@@ -1,6 +1,7 @@
 import { describe, it, expect, afterAll } from "vitest";
 import { NextRequest } from "next/server";
 import { GET as healthGet } from "@/app/api/health/route";
+import { POST as syncProfilePost } from "@/app/api/auth/sync-profile/route";
 import { handleApiRequest } from "@/server/api-router";
 import { prisma } from "@/server/prisma";
 
@@ -27,6 +28,13 @@ describe("GET /api/health", () => {
     const res = await healthGet();
     expect(res.status).toBe(200);
     expect(await res.json()).toEqual({ status: "ok" });
+  });
+});
+
+describe("POST /api/auth/sync-profile", () => {
+  it("sem Authorization retorna 401", async () => {
+    const res = await syncProfilePost(jsonReq("POST", "/api/auth/sync-profile"));
+    expect(res.status).toBe(401);
   });
 });
 

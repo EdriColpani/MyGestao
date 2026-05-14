@@ -10,12 +10,30 @@ export function AuthGuard({ children }: { children: React.ReactNode }) {
   const [ready, setReady] = useState(false);
 
   useLayoutEffect(() => {
-    const token = getAccessToken();
-    if (!token) {
-      router.replace(`/login?next=${encodeURIComponent(pathname)}`);
-      return;
-    }
-    setReady(true);
+    let cancelled = false;
+    void (async () => {
+      try {
+        const { createSupabaseBrowserClient } = await import("@/lib/supabase/browser-client");
+        const sb = createSupabaseBrowserClient();
+        const { data } = await sb.auth.getSession();
+        if (!cancelled && data.session) {
+          setReady(true);
+          return;
+        }
+      } catch {
+        /* Supabase nao configurado: fallback JWT legado */
+      }
+      if (!cancelled && getAccessToken()) {
+        setReady(true);
+        return;
+      }
+      if (!cancelled) {
+        router.replace(`/login?next=${encodeURIComponent(pathname)}`);
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
   }, [router, pathname]);
 
   if (!ready) {

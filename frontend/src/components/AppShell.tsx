@@ -33,7 +33,13 @@ export function AppShell({ children }: { children: React.ReactNode }) {
     return () => window.removeEventListener("keydown", onKey);
   }, [menuOpen]);
 
-  const logout = () => {
+  const logout = async () => {
+    try {
+      const { createSupabaseBrowserClient } = await import("@/lib/supabase/browser-client");
+      await createSupabaseBrowserClient().auth.signOut();
+    } catch {
+      /* ignorado */
+    }
     clearTokens();
     router.replace("/login");
   };

@@ -35,9 +35,9 @@ export function assertNoSupabaseDirectDbHostOnServerless(raw: string): void {
   const port = u.port || "5432";
   if (/^db\.[^.]+\.supabase\.co$/.test(host) && port === "5432") {
     throw new ApiConfigError(
-      "Na Vercel use a connection string do pooler Supabase (porta 6543, host …pooler.supabase.com), nao db.*.supabase.co:5432. Copie em Settings > Database > Transaction pooler e atualize a variavel na Vercel.",
+      "Servico indisponivel. Tente mais tarde.",
       503,
-      "Direct Supabase host db.PROJECT.supabase.co:5432 is unreliable from Vercel serverless. Use Transaction pooler URI (port 6543) as PRISMA_DATABASE_URL or DATABASE_URL, then redeploy.",
+      "Supabase na Vercel: troque db.*.supabase.co:5432 pela string Transaction pooler (porta 6543, host …pooler.supabase.com). Supabase → Settings → Database → Transaction pooler → copiar URI → variavel PRISMA_DATABASE_URL ou DATABASE_URL na Vercel → redeploy.",
     );
   }
 }

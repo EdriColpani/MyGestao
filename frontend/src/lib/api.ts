@@ -74,7 +74,39 @@ export function resolveApiFetchUrl(path: string): string {
   return `/api${pathNorm}`;
 }
 
-async function refreshAccess(): Promise<boolean> {
+async function getBearerForApi(): Promise<string | null> {
+  if (typeof window !== "undefined") {
+    try {
+      const { createSupabaseBrowserClient } = await import("@/lib/supabase/browser-client");
+      const sb = createSupabaseBrowserClient();
+      const { data } = await sb.auth.getSession();
+      if (data.session?.access_token) return data.session.access_token;
+    } catch {
+      /* Supabase nao configurado ou erro de sessao */
+    }
+  }
+  return getAccessToken();
+}
+
+async function refreshSupabaseSession(): Promise<boolean> {
+  if (typeof window === "undefined") return false;
+  try {
+    const { createSupabaseBrowserClient } = await import("@/lib/supabase/browser-client");
+    const sb = createSupabaseBrowserClient();
+    const { data, error } = await sb.auth.refreshSession();
+    if (error || !data.session) {
+      await sb.auth.signOut();
+      clearTokens();
+      return false;
+    }
+    return true;
+  } catch {
+    clearTokens();
+    return false;
+  }
+}
+
+async function refreshLegacyAccess(): Promise<boolean> {
   const refresh = getRefreshToken();
   if (!refresh) return false;
 
@@ -107,21 +139,23 @@ export async function apiFetch(path: string, init?: RequestInit): Promise<Respon
     headers.set("Content-Type", "application/json");
   }
 
-  const token = getAccessToken();
+  const token = await getBearerForApi();
   if (token && !PUBLIC_AUTH_JSON_PATHS.has(path)) {
     headers.set("Authorization", `Bearer ${token}`);
   }
 
   let res = await fetch(url, { ...init, headers });
 
-  if (res.status === 401 && getRefreshToken() && !PUBLIC_AUTH_JSON_PATHS.has(path)) {
-    const ok = await refreshAccess();
+  if (res.status === 401 && !PUBLIC_AUTH_JSON_PATHS.has(path)) {
+    const supabaseOk = await refreshSupabaseSession();
+    const legacyOk = !supabaseOk ? await refreshLegacyAccess() : false;
+    const ok = supabaseOk || legacyOk;
     if (ok) {
       const retryHeaders = new Headers(init?.headers);
       if (!retryHeaders.has("Content-Type") && init?.body) {
         retryHeaders.set("Content-Type", "application/json");
       }
-      const t2 = getAccessToken();
+      const t2 = await getBearerForApi();
       if (t2 && !PUBLIC_AUTH_JSON_PATHS.has(path)) {
         retryHeaders.set("Authorization", `Bearer ${t2}`);
       }

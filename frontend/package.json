@@ -16,6 +16,8 @@
   },
   "dependencies": {
     "@prisma/client": "5.22.0",
+    "@supabase/ssr": "^0.10.3",
+    "@supabase/supabase-js": "^2.105.4",
     "bcryptjs": "^3.0.3",
     "jsonwebtoken": "^9.0.2",
     "next": "^15.3.3",

@@ -7,6 +7,7 @@ import { ApiConfigError } from "./api-errors";
 import { ensureApiRuntimeEnv, prisma } from "./prisma";
 import { toMonthStart } from "./date";
 import { signAccessToken, signRefreshToken, verifyToken, type JwtUserPayload } from "./jwt";
+import { verifySupabaseAccessToken } from "./supabase-auth";
 import { withRls } from "./with-rls";
 
 async function readJson(request: NextRequest): Promise<unknown> {
@@ -51,6 +52,12 @@ async function requireAccess(request: NextRequest): Promise<{ user: JwtUserPaylo
   const auth = request.headers.get("authorization");
   if (!auth?.startsWith("Bearer ")) return unauthorized();
   const token = auth.slice(7);
+
+  const supa = await verifySupabaseAccessToken(token);
+  if (supa) {
+    return { user: { sub: supa.sub, email: supa.email, role: "user" } };
+  }
+
   try {
     const decoded = verifyToken(token);
     if (decoded.tokenUse === "refresh") {
