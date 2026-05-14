@@ -250,12 +250,13 @@ export default function ExpensesPage() {
           />
         </div>
         <div>
-          <label className="text-sm font-medium text-slate-700">Nome da loja</label>
+          <label className="text-sm font-medium text-slate-700">Fornecedor, empresa ou loja</label>
           <input
             required
             disabled={saving}
             value={storeName}
             onChange={(e) => setStoreName(e.target.value)}
+            placeholder="Ex.: nome da empresa, loja ou prestador"
             className={`mt-1 ${formControlClass}`}
           />
         </div>
@@ -352,7 +353,7 @@ export default function ExpensesPage() {
                 <th className="px-4 py-3">Mês ref.</th>
                 <th className="px-4 py-3">Vencimento</th>
                 <th className="px-4 py-3">Descrição</th>
-                <th className="px-4 py-3">Loja</th>
+                <th className="px-4 py-3">Fornecedor</th>
                 <th className="px-4 py-3">Cartão</th>
                 <th className="px-4 py-3">Categoria</th>
                 <th className="px-4 py-3">Parcelas</th>

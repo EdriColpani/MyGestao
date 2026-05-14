@@ -234,7 +234,7 @@ export default function PaymentsPage() {
               <th className="px-4 py-3">Pagar</th>
               <th className="px-4 py-3">Parcela</th>
               <th className="px-4 py-3">Descrição</th>
-              <th className="px-4 py-3">Loja</th>
+              <th className="px-4 py-3">Fornecedor</th>
               <th className="px-4 py-3">Venc.</th>
               <th className="px-4 py-3">Valor</th>
             </tr>
