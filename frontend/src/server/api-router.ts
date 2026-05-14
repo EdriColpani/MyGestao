@@ -453,6 +453,33 @@ export async function handleApiRequest(request: NextRequest, segments: string[])
       }
     }
 
+    if (method === "DELETE" && segments[0] === "expenses" && segments[1] === "purchases" && segments.length === 3) {
+      const paramsSchema = z.object({ id: z.string().uuid() });
+      const params = paramsSchema.parse({ id: segments[2] });
+      const blocked = await withRls(userId, async (tx) => {
+        const linked = await tx.cardInvoicePaymentItem.count({
+          where: { installment: { purchaseId: params.id, userId } },
+        });
+        return linked > 0;
+      });
+      if (blocked) {
+        return NextResponse.json(
+          {
+            message:
+              "Nao e possivel excluir: ja existe pagamento de fatura associado a parcelas desta compra. Corrija apenas duplicados sem pagamentos.",
+          },
+          { status: 409 },
+        );
+      }
+      const deleted = await withRls(userId, (tx) =>
+        tx.expensePurchase.deleteMany({ where: { id: params.id, userId } }),
+      );
+      if (deleted.count === 0) {
+        return NextResponse.json({ message: "Compra nao encontrada" }, { status: 404 });
+      }
+      return new NextResponse(null, { status: 204 });
+    }
+
     if (method === "GET" && segments[0] === "expenses" && segments[1] === "installments") {
       const querySchema = z.object({
         referenceMonth: z.string().regex(/^\d{4}-\d{2}$/),
