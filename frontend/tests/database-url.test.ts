@@ -21,6 +21,16 @@ describe("getResolvedDatabaseUrlForPrisma", () => {
     expect(getResolvedDatabaseUrlForPrisma()).toContain("localhost");
     vi.unstubAllEnvs();
   });
+
+  it("usa URI embutida se todas as env Postgres estiverem vazias", () => {
+    vi.stubEnv("PRISMA_DATABASE_URL", "");
+    vi.stubEnv("POSTGRES_PRISMA_URL", "");
+    vi.stubEnv("DATABASE_URL", "");
+    const u = getResolvedDatabaseUrlForPrisma();
+    expect(u).toBeDefined();
+    expect(u).toMatch(/pooler\.supabase\.com/);
+    vi.unstubAllEnvs();
+  });
 });
 
 describe("assertNoSupabaseDirectDbHostOnServerless", () => {
