@@ -10,6 +10,7 @@ export function AuthGuard({ children }: { children: React.ReactNode }) {
   const [ready, setReady] = useState(false);
 
   useLayoutEffect(() => {
+    if (ready) return;
     let cancelled = false;
     void (async () => {
       try {
@@ -34,7 +35,7 @@ export function AuthGuard({ children }: { children: React.ReactNode }) {
     return () => {
       cancelled = true;
     };
-  }, [router, pathname]);
+  }, [router, pathname, ready]);
 
   if (!ready) {
     return (

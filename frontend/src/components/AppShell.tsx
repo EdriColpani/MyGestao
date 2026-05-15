@@ -4,6 +4,7 @@ import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
 import { BrandLogo } from "@/components/BrandLogo";
+import { invalidateApiAuthCache } from "@/lib/api";
 import { clearTokens } from "@/lib/auth-storage";
 
 const nav = [
@@ -41,6 +42,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
       /* ignorado */
     }
     clearTokens();
+    invalidateApiAuthCache();
     router.replace("/login");
   };
 
