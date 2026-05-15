@@ -497,6 +497,10 @@ export async function handleApiRequest(request: NextRequest, segments: string[])
               storeName: body.storeName,
               productDescription: body.productDescription,
             },
+            include: {
+              card: { select: { name: true } },
+              category: { select: { name: true } },
+            },
           });
         });
         return NextResponse.json(purchase, { status: 201 });

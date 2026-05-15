@@ -5,7 +5,7 @@ import { useRouter } from "next/navigation";
 import { FormEvent, useState } from "react";
 import { BrandLogo } from "@/components/BrandLogo";
 import { resolveApiFetchUrl } from "@/lib/api";
-import { clearTokens } from "@/lib/auth-storage";
+import { applySyncProfileResponse } from "@/lib/app-session";
 import { createSupabaseBrowserClient } from "@/lib/supabase/browser-client";
 
 export default function RegisterPage() {
@@ -47,7 +47,7 @@ export default function RegisterPage() {
           }
           throw new Error(msg);
         }
-        clearTokens();
+        await applySyncProfileResponse(sync);
         router.replace("/dashboard");
         return;
       }

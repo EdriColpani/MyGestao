@@ -100,7 +100,8 @@ export default function PaymentsPage() {
       setMsg("Pagamento registrado e fluxo de caixa atualizado.");
       setInterestInput("");
       setLateFeeInput("");
-      await loadInstallments();
+      setRows((prev) => prev.filter((r) => !selectedIds.includes(r.id)));
+      setSelected({});
     } catch (err) {
       setError(err instanceof Error ? err.message : "Erro no pagamento");
     }

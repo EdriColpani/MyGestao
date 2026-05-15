@@ -51,7 +51,7 @@ export default function IncomesPage() {
       return;
     }
     try {
-      await apiJson("/incomes", {
+      const created = await apiJson<Income>("/incomes", {
         method: "POST",
         body: JSON.stringify({
           categoryId,
@@ -64,7 +64,7 @@ export default function IncomesPage() {
       setAmount("");
       setDescription("");
       setMsg("Receita registrada.");
-      await load();
+      setList((prev) => [created, ...prev]);
     } catch (err) {
       setError(err instanceof Error ? err.message : "Erro");
     }

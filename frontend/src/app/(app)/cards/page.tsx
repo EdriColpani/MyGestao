@@ -64,7 +64,7 @@ export default function CardsPage() {
     }
     try {
       if (editingId) {
-        await apiJson(`/cards/${editingId}`, {
+        const updated = await apiJson<Card>(`/cards/${editingId}`, {
           method: "PUT",
           body: JSON.stringify({
             name,
@@ -74,9 +74,10 @@ export default function CardsPage() {
             issuingBank,
           }),
         });
+        setList((prev) => prev.map((c) => (c.id === editingId ? updated : c)));
         setMsg("Cartão atualizado.");
       } else {
-        await apiJson("/cards", {
+        const created = await apiJson<Card>("/cards", {
           method: "POST",
           body: JSON.stringify({
             name,
@@ -86,10 +87,10 @@ export default function CardsPage() {
             issuingBank,
           }),
         });
+        setList((prev) => [...prev, created]);
         setMsg("Cartão criado.");
       }
       resetForm();
-      await load();
     } catch (err) {
       setError(err instanceof Error ? err.message : "Erro");
     }
@@ -101,7 +102,7 @@ export default function CardsPage() {
     try {
       await apiJson(`/cards/${id}`, { method: "DELETE" });
       if (editingId === id) resetForm();
-      await load();
+      setList((prev) => prev.filter((c) => c.id !== id));
     } catch (err) {
       setError(err instanceof Error ? err.message : "Erro");
     }

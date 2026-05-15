@@ -82,7 +82,7 @@ export default function ExpensesPage() {
     }
     setSaving(true);
     try {
-      await apiJson("/expenses/purchases", {
+      const created = await apiJson<Purchase>("/expenses/purchases", {
         method: "POST",
         body: JSON.stringify({
           referenceMonth,
@@ -103,7 +103,7 @@ export default function ExpensesPage() {
       setStoreName("");
       setProductDescription("");
       setInstallments("1");
-      await loadPurchases();
+      setPurchases((prev) => [created, ...prev].slice(0, 100));
     } catch (err) {
       setError(err instanceof Error ? err.message : "Erro");
     } finally {
@@ -125,7 +125,7 @@ export default function ExpensesPage() {
     try {
       await apiJson<void>(`/expenses/purchases/${id}`, { method: "DELETE" });
       setMsg("Compra excluida.");
-      await loadPurchases();
+      setPurchases((prev) => prev.filter((p) => p.id !== id));
     } catch (err) {
       setError(err instanceof Error ? err.message : "Erro ao excluir");
     } finally {
