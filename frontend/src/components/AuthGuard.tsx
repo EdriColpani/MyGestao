@@ -2,6 +2,7 @@
 
 import { usePathname, useRouter } from "next/navigation";
 import { useLayoutEffect, useState } from "react";
+import { ensureAppJwtFromSupabaseSession } from "@/lib/app-session";
 import { getAccessToken } from "@/lib/auth-storage";
 
 export function AuthGuard({ children }: { children: React.ReactNode }) {
@@ -18,7 +19,10 @@ export function AuthGuard({ children }: { children: React.ReactNode }) {
         const sb = createSupabaseBrowserClient();
         const { data } = await sb.auth.getSession();
         if (!cancelled && data.session) {
-          setReady(true);
+          if (!getAccessToken()) {
+            await ensureAppJwtFromSupabaseSession(data.session.access_token);
+          }
+          if (!cancelled) setReady(true);
           return;
         }
       } catch {

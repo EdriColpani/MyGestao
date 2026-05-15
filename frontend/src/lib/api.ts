@@ -1,3 +1,9 @@
+import {
+  apiCacheKey,
+  clearApiDataCache,
+  getApiCache,
+  setApiCache,
+} from "./api-cache";
 import { clearTokens, getAccessToken, getRefreshToken, setTokens } from "./auth-storage";
 
 /** Rotas públicas: não enviar Bearer nem refresh+retry em 401. */
@@ -93,9 +99,22 @@ export function invalidateApiAuthCache(): void {
   cachedBearerAt = 0;
 }
 
+/** Define JWT da app em cache apos sync-profile / login. */
+export function primeBearerCache(accessToken: string): void {
+  cachedBearer = accessToken;
+  cachedBearerAt = Date.now();
+}
+
 async function getBearerForApi(): Promise<string | null> {
   if (typeof window !== "undefined" && cachedBearer && Date.now() - cachedBearerAt < BEARER_CACHE_MS) {
     return cachedBearer;
+  }
+
+  const appJwt = getAccessToken();
+  if (appJwt) {
+    cachedBearer = appJwt;
+    cachedBearerAt = Date.now();
+    return appJwt;
   }
 
   if (typeof window !== "undefined") {
@@ -113,12 +132,7 @@ async function getBearerForApi(): Promise<string | null> {
     }
   }
 
-  const legacy = getAccessToken();
-  if (legacy) {
-    cachedBearer = legacy;
-    cachedBearerAt = Date.now();
-  }
-  return legacy;
+  return null;
 }
 
 async function refreshSupabaseSession(): Promise<boolean> {
@@ -134,6 +148,16 @@ async function refreshSupabaseSession(): Promise<boolean> {
       return false;
     }
     invalidateApiAuthCache();
+    if (!getAccessToken() && data.session.access_token) {
+      const sync = await fetch(resolveApiFetchUrl("/auth/sync-profile"), {
+        method: "POST",
+        headers: { Authorization: `Bearer ${data.session.access_token}` },
+      });
+      if (sync.ok) {
+        const { applySyncProfileTokens } = await import("./app-session");
+        applySyncProfileTokens((await sync.json()) as import("./app-session").SyncProfileBody);
+      }
+    }
     return true;
   } catch {
     clearTokens();
@@ -187,9 +211,9 @@ export async function apiFetch(path: string, init?: RequestInit): Promise<Respon
 
   if (res.status === 401 && !PUBLIC_AUTH_JSON_PATHS.has(path)) {
     invalidateApiAuthCache();
-    const supabaseOk = await refreshSupabaseSession();
-    const legacyOk = !supabaseOk ? await refreshLegacyAccess() : false;
-    const ok = supabaseOk || legacyOk;
+    const legacyOk = getRefreshToken() ? await refreshLegacyAccess() : false;
+    const supabaseOk = !legacyOk ? await refreshSupabaseSession() : false;
+    const ok = legacyOk || supabaseOk;
     if (ok) {
       const retryHeaders = new Headers(init?.headers);
       if (!retryHeaders.has("Content-Type") && init?.body) {
@@ -206,7 +230,30 @@ export async function apiFetch(path: string, init?: RequestInit): Promise<Respon
   return res;
 }
 
+function invalidateCacheAfterMutation(): void {
+  clearApiDataCache();
+}
+
+/** Pre-carrega GETs em segundo plano (menu hover). */
+export function prefetchApiJson(...paths: string[]): void {
+  for (const path of paths) {
+    const key = apiCacheKey(path);
+    if (getApiCache(key) !== undefined) continue;
+    void apiJson(path).catch(() => {
+      /* prefetch silencioso */
+    });
+  }
+}
+
 export async function apiJson<T>(path: string, init?: RequestInit): Promise<T> {
+  const method = (init?.method ?? "GET").toUpperCase();
+  const cacheKey = apiCacheKey(path, method);
+
+  if (method === "GET") {
+    const hit = getApiCache<T>(cacheKey);
+    if (hit !== undefined) return hit;
+  }
+
   const res = await apiFetch(path, init);
   if (!res.ok) {
     let msg = res.statusText;
@@ -219,7 +266,14 @@ export async function apiJson<T>(path: string, init?: RequestInit): Promise<T> {
     throw new Error(msg);
   }
   if (res.status === 204) {
+    if (method !== "GET") invalidateCacheAfterMutation();
     return undefined as T;
   }
-  return (await res.json()) as T;
+  const data = (await res.json()) as T;
+  if (method === "GET") {
+    setApiCache(cacheKey, data);
+  } else {
+    invalidateCacheAfterMutation();
+  }
+  return data;
 }

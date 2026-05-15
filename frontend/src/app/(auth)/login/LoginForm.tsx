@@ -4,8 +4,8 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { FormEvent, useEffect, useState } from "react";
 import { BrandLogo } from "@/components/BrandLogo";
-import { invalidateApiAuthCache, resolveApiFetchUrl } from "@/lib/api";
-import { clearTokens } from "@/lib/auth-storage";
+import { resolveApiFetchUrl } from "@/lib/api";
+import { applySyncProfileResponse } from "@/lib/app-session";
 import { createSupabaseBrowserClient } from "@/lib/supabase/browser-client";
 
 type Props = {
@@ -55,8 +55,7 @@ export function LoginForm({ redirectTo }: Props) {
         throw new Error(msg);
       }
 
-      clearTokens();
-      invalidateApiAuthCache();
+      await applySyncProfileResponse(sync);
       router.replace(redirectTo);
     } catch (err) {
       setError(err instanceof Error ? err.message : "Erro");

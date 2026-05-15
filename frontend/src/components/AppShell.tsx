@@ -5,7 +5,9 @@ import { usePathname, useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
 import { BrandLogo } from "@/components/BrandLogo";
 import { invalidateApiAuthCache } from "@/lib/api";
+import { clearAppSession } from "@/lib/app-session";
 import { clearTokens } from "@/lib/auth-storage";
+import { prefetchAppRoute } from "@/lib/route-prefetch";
 
 const nav = [
   { href: "/dashboard", label: "Dashboard", short: "Início" },
@@ -42,6 +44,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
       /* ignorado */
     }
     clearTokens();
+    clearAppSession();
     invalidateApiAuthCache();
     router.replace("/login");
   };
@@ -55,6 +58,14 @@ export function AppShell({ children }: { children: React.ReactNode }) {
             key={item.href}
             href={item.href}
             onClick={onNavigate}
+            onMouseEnter={() => {
+              router.prefetch(item.href);
+              prefetchAppRoute(item.href);
+            }}
+            onFocus={() => {
+              router.prefetch(item.href);
+              prefetchAppRoute(item.href);
+            }}
             className={`rounded-xl px-4 py-3 text-base font-medium transition md:rounded-lg md:px-3 md:py-2 md:text-sm ${
               active
                 ? "bg-white/20 text-white shadow-inner md:bg-white/15"

@@ -1,6 +1,6 @@
 "use client";
 
-import { FormEvent, useEffect, useState } from "react";
+import { FormEvent, useCallback, useEffect, useState } from "react";
 import { apiJson } from "@/lib/api";
 import { formControlClass } from "@/lib/form-styles";
 import { currentYearMonth, rollingYearMonths, todayISODate } from "@/lib/month";
@@ -37,7 +37,7 @@ export default function PaymentsPage() {
       .catch((e) => setError(e instanceof Error ? e.message : "Erro"));
   }, []);
 
-  const loadInstallments = async () => {
+  const loadInstallments = useCallback(async () => {
     if (!cardId) return;
     setError(null);
     try {
@@ -53,11 +53,11 @@ export default function PaymentsPage() {
     } catch (e) {
       setError(e instanceof Error ? e.message : "Erro ao carregar");
     }
-  };
+  }, [cardId, referenceMonth]);
 
   useEffect(() => {
     void loadInstallments();
-  }, [cardId, referenceMonth]);
+  }, [loadInstallments]);
 
   const toggle = (id: string) => {
     setSelected((s) => ({ ...s, [id]: !s[id] }));
@@ -100,7 +100,8 @@ export default function PaymentsPage() {
       setMsg("Pagamento registrado e fluxo de caixa atualizado.");
       setInterestInput("");
       setLateFeeInput("");
-      await loadInstallments();
+      setRows((prev) => prev.filter((r) => !selectedIds.includes(r.id)));
+      setSelected({});
     } catch (err) {
       setError(err instanceof Error ? err.message : "Erro no pagamento");
     }

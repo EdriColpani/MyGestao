@@ -5,6 +5,7 @@ import { NextResponse, type NextRequest } from "next/server";
 import { getSupabaseAnonKey, getSupabasePublicUrl } from "@/lib/supabase/public-env";
 import { ApiConfigError } from "@/server/api-errors";
 import { getResolvedDatabaseUrlForPrisma } from "@/server/database-url";
+import { signAccessToken, signRefreshToken } from "@/server/jwt";
 import { ensureApiRuntimeEnv, prisma } from "@/server/prisma";
 
 export const dynamic = "force-dynamic";
@@ -142,5 +143,10 @@ export async function POST(request: NextRequest) {
     );
   }
 
-  return NextResponse.json({ ok: true });
+  const jwtUser = { sub: user.id, email, role: "user" };
+  return NextResponse.json({
+    ok: true,
+    accessToken: signAccessToken(jwtUser),
+    refreshToken: signRefreshToken(jwtUser),
+  });
 }

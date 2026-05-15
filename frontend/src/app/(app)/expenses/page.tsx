@@ -43,30 +43,41 @@ export default function ExpensesPage() {
   const [saving, setSaving] = useState(false);
   const [deletingId, setDeletingId] = useState<string | null>(null);
 
-  const loadMeta = async () => {
-    const [cats, cs] = await Promise.all([
-      apiJson<Category[]>("/categories?type=expense"),
-      apiJson<Card[]>("/cards"),
-    ]);
-    setCategories(cats);
-    setCards(cs);
-    if (!categoryId && cats[0]) setCategoryId(cats[0].id);
-    if (!cardId && cs[0]) setCardId(cs[0].id);
-  };
-
   useEffect(() => {
-    loadMeta().catch((e) => setError(e instanceof Error ? e.message : "Erro"));
+    let cancelled = false;
+    void (async () => {
+      try {
+        const [cats, cs] = await Promise.all([
+          apiJson<Category[]>("/categories?type=expense"),
+          apiJson<Card[]>("/cards"),
+        ]);
+        if (cancelled) return;
+        setCategories(cats);
+        setCards(cs);
+        if (cats[0]) setCategoryId((prev) => prev || cats[0].id);
+        if (cs[0]) setCardId((prev) => prev || cs[0].id);
+      } catch (e) {
+        if (!cancelled) setError(e instanceof Error ? e.message : "Erro");
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
   }, []);
 
-  const loadPurchases = async () => {
-    const data = await apiJson<Purchase[]>("/expenses/purchases");
-    setPurchases(data);
-  };
-
   useEffect(() => {
-    loadPurchases().catch(() => {
-      /* ignorado: erro já tratado no submit */
-    });
+    let cancelled = false;
+    void (async () => {
+      try {
+        const data = await apiJson<Purchase[]>("/expenses/purchases");
+        if (!cancelled) setPurchases(data);
+      } catch {
+        /* ignorado: erro já tratado no submit */
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
   }, []);
 
   const onSubmit = async (e: FormEvent) => {
@@ -82,7 +93,7 @@ export default function ExpensesPage() {
     }
     setSaving(true);
     try {
-      await apiJson("/expenses/purchases", {
+      const created = await apiJson<Purchase>("/expenses/purchases", {
         method: "POST",
         body: JSON.stringify({
           referenceMonth,
@@ -103,7 +114,7 @@ export default function ExpensesPage() {
       setStoreName("");
       setProductDescription("");
       setInstallments("1");
-      await loadPurchases();
+      setPurchases((prev) => [created, ...prev].slice(0, 100));
     } catch (err) {
       setError(err instanceof Error ? err.message : "Erro");
     } finally {
@@ -125,7 +136,7 @@ export default function ExpensesPage() {
     try {
       await apiJson<void>(`/expenses/purchases/${id}`, { method: "DELETE" });
       setMsg("Compra excluida.");
-      await loadPurchases();
+      setPurchases((prev) => prev.filter((p) => p.id !== id));
     } catch (err) {
       setError(err instanceof Error ? err.message : "Erro ao excluir");
     } finally {
