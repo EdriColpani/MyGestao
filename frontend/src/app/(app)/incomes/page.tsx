@@ -27,18 +27,25 @@ export default function IncomesPage() {
   const [error, setError] = useState<string | null>(null);
   const [msg, setMsg] = useState<string | null>(null);
 
-  const load = async () => {
-    const [cats, inc] = await Promise.all([
-      apiJson<Category[]>("/categories?type=income"),
-      apiJson<Income[]>("/incomes"),
-    ]);
-    setCategories(cats);
-    setList(inc);
-    if (!categoryId && cats[0]) setCategoryId(cats[0].id);
-  };
-
   useEffect(() => {
-    load().catch((e) => setError(e instanceof Error ? e.message : "Erro"));
+    let cancelled = false;
+    void (async () => {
+      try {
+        const [cats, inc] = await Promise.all([
+          apiJson<Category[]>("/categories?type=income"),
+          apiJson<Income[]>("/incomes"),
+        ]);
+        if (cancelled) return;
+        setCategories(cats);
+        setList(inc);
+        if (cats[0]) setCategoryId((prev) => prev || cats[0].id);
+      } catch (e) {
+        if (!cancelled) setError(e instanceof Error ? e.message : "Erro");
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
   }, []);
 
   const onSubmit = async (e: FormEvent) => {

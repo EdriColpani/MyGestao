@@ -230,7 +230,7 @@ export async function apiFetch(path: string, init?: RequestInit): Promise<Respon
   return res;
 }
 
-function invalidateCacheAfterMutation(_path: string): void {
+function invalidateCacheAfterMutation(): void {
   clearApiDataCache();
 }
 
@@ -266,14 +266,14 @@ export async function apiJson<T>(path: string, init?: RequestInit): Promise<T> {
     throw new Error(msg);
   }
   if (res.status === 204) {
-    if (method !== "GET") invalidateCacheAfterMutation(path);
+    if (method !== "GET") invalidateCacheAfterMutation();
     return undefined as T;
   }
   const data = (await res.json()) as T;
   if (method === "GET") {
     setApiCache(cacheKey, data);
   } else {
-    invalidateCacheAfterMutation(path);
+    invalidateCacheAfterMutation();
   }
   return data;
 }

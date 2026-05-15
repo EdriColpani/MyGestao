@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import {
   Bar,
   BarChart,
@@ -65,7 +65,7 @@ export default function ReportsPage() {
       .catch((e) => setError(e instanceof Error ? e.message : "Erro"));
   }, []);
 
-  const load = async () => {
+  const load = useCallback(async () => {
     setError(null);
     try {
       const payUrl = `/reports/payments?fromMonth=${fromMonth}&toMonth=${toMonth}${
@@ -87,11 +87,11 @@ export default function ReportsPage() {
     } catch (e) {
       setError(e instanceof Error ? e.message : "Erro");
     }
-  };
+  }, [fromMonth, toMonth, cardId, categoryId, status]);
 
   useEffect(() => {
     void load();
-  }, [fromMonth, toMonth, cardId, categoryId, status]);
+  }, [load]);
 
   const catTotals = installments.reduce<Record<string, number>>((acc, row) => {
     const name = row.purchase.category.name;
