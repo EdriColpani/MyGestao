@@ -4,7 +4,7 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { FormEvent, useEffect, useState } from "react";
 import { BrandLogo } from "@/components/BrandLogo";
-import { resolveApiFetchUrl } from "@/lib/api";
+import { invalidateApiAuthCache, resolveApiFetchUrl } from "@/lib/api";
 import { clearTokens } from "@/lib/auth-storage";
 import { createSupabaseBrowserClient } from "@/lib/supabase/browser-client";
 
@@ -56,6 +56,7 @@ export function LoginForm({ redirectTo }: Props) {
       }
 
       clearTokens();
+      invalidateApiAuthCache();
       router.replace(redirectTo);
     } catch (err) {
       setError(err instanceof Error ? err.message : "Erro");

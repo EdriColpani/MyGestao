@@ -32,21 +32,27 @@ export default function DashboardPage() {
   useEffect(() => {
     let cancelled = false;
     (async () => {
-      try {
-        const [s, c, b] = await Promise.all([
-          apiJson<Summary>(`/dashboard/summary?referenceMonth=${ym}`),
-          apiJson<ChartRes>(`/reports/charts/monthly?months=6`),
-          apiJson<ByCardRow[]>(`/reports/summary/by-card?fromMonth=${ym}&toMonth=${ym}`),
-        ]);
-        if (!cancelled) {
-          setSummary(s);
-          setChart(c);
-          setByCard(b);
-          setError(null);
-        }
-      } catch (e) {
-        if (!cancelled) setError(e instanceof Error ? e.message : "Erro ao carregar");
-      }
+      const results = await Promise.allSettled([
+        apiJson<Summary>(`/dashboard/summary?referenceMonth=${ym}`),
+        apiJson<ChartRes>(`/reports/charts/monthly?months=6`),
+        apiJson<ByCardRow[]>(`/reports/summary/by-card?fromMonth=${ym}&toMonth=${ym}`),
+      ]);
+      if (cancelled) return;
+
+      const labels = ["resumo do mes", "grafico (6 meses)", "despesas por cartao"];
+      const failures: string[] = [];
+      const [sRes, cRes, bRes] = results;
+
+      if (sRes.status === "fulfilled") setSummary(sRes.value);
+      else failures.push(`${labels[0]}: ${sRes.reason instanceof Error ? sRes.reason.message : "erro"}`);
+
+      if (cRes.status === "fulfilled") setChart(cRes.value);
+      else failures.push(`${labels[1]}: ${cRes.reason instanceof Error ? cRes.reason.message : "erro"}`);
+
+      if (bRes.status === "fulfilled") setByCard(bRes.value);
+      else failures.push(`${labels[2]}: ${bRes.reason instanceof Error ? bRes.reason.message : "erro"}`);
+
+      setError(failures.length > 0 ? failures.join(" · ") : null);
     })();
     return () => {
       cancelled = true;

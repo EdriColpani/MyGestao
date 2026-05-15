@@ -48,6 +48,62 @@ function isJwtSecretConfigError(e: unknown): boolean {
   return /secretOrPrivateKey|secret key|JWT|jwt|HS256|key must have/i.test(e.message);
 }
 
+function isPrismaSchemaMismatchError(e: unknown): boolean {
+  if (e instanceof Prisma.PrismaClientKnownRequestError && e.code === "P2022") {
+    return true;
+  }
+  const name = e instanceof Error ? e.name : "";
+  const ctor = e && typeof e === "object" ? (e as { constructor?: { name?: string } }).constructor?.name : "";
+  if (name === "PrismaClientValidationError" || ctor === "PrismaClientValidationError") {
+    return true;
+  }
+  const msg = e instanceof Error ? e.message : "";
+  return /Unknown field|Unknown arg|Invalid.*invocation/i.test(msg);
+}
+
+function apiErrorMessage(e: unknown): { message: string; status: number } {
+  if (e instanceof ApiConfigError) {
+    return { message: e.message, status: e.statusCode };
+  }
+  const err = e as Error & { status?: number };
+  if (err.status === 400) {
+    return { message: err.message, status: 400 };
+  }
+  if (isJwtSecretConfigError(e)) {
+    return { message: "Servico temporariamente indisponivel. Tente mais tarde.", status: 503 };
+  }
+  if (e instanceof Error && /^Variaveis de ambiente invalidas/i.test(e.message)) {
+    return { message: "Servico temporariamente indisponivel. Tente mais tarde.", status: 503 };
+  }
+  if (isDatabaseUnavailableError(e)) {
+    return {
+      message: "Nao foi possivel ligar a base de dados. Verifique a ligacao no servidor e tente mais tarde.",
+      status: 503,
+    };
+  }
+  if (isPrismaSchemaMismatchError(e)) {
+    return {
+      message:
+        "Base de dados desatualizada em relacao ao codigo. No servidor execute o schema (ex.: npx prisma db push) e faca um novo deploy.",
+      status: 503,
+    };
+  }
+  if (e instanceof Prisma.PrismaClientKnownRequestError && e.code === "P2003") {
+    const hint = `${e.message} ${JSON.stringify(e.meta ?? {})}`;
+    if (hint.includes("user_id") || hint.includes("users")) {
+      return {
+        message: "Sessao expirada ou invalida. Saia, limpe os dados do site para este dominio e entre novamente.",
+        status: 401,
+      };
+    }
+  }
+  const expose = process.env.NODE_ENV === "development" || process.env.API_DEBUG_ERRORS === "1";
+  if (expose && e instanceof Error) {
+    return { message: `${e.name}: ${e.message}`.slice(0, 500), status: 500 };
+  }
+  return { message: "Algo correu mal. Tente mais tarde.", status: 500 };
+}
+
 async function requireAccess(request: NextRequest): Promise<{ user: JwtUserPayload } | NextResponse> {
   const auth = request.headers.get("authorization");
   if (!auth?.startsWith("Bearer ")) return unauthorized();
@@ -712,24 +768,22 @@ export async function handleApiRequest(request: NextRequest, segments: string[])
       const query = querySchema.parse(Object.fromEntries(url.searchParams));
       const from = toMonthStart(query.fromMonth);
       const to = toMonthStart(query.toMonth);
-      const rows = await withRls(userId, (tx) =>
-        tx.expenseInstallment.groupBy({
+      const out = await withRls(userId, async (tx) => {
+        const rows = await tx.expenseInstallment.groupBy({
           by: ["cardId"],
           where: { userId, referenceMonth: { gte: from, lte: to } },
           _sum: { amount: true },
-        }),
-      );
-      const cards = await withRls(userId, (tx) =>
-        tx.card.findMany({
+        });
+        const cards = await tx.card.findMany({
           where: { userId, id: { in: rows.map((r) => r.cardId) } },
-        }),
-      );
-      const cardMap = new Map(cards.map((c) => [c.id, c]));
-      const out = rows.map((r) => ({
-        cardId: r.cardId,
-        cardName: cardMap.get(r.cardId)?.name ?? null,
-        totalAmount: Number(r._sum.amount ?? 0),
-      }));
+        });
+        const cardMap = new Map(cards.map((c) => [c.id, c]));
+        return rows.map((r) => ({
+          cardId: r.cardId,
+          cardName: cardMap.get(r.cardId)?.name ?? null,
+          totalAmount: Number(r._sum.amount ?? 0),
+        }));
+      });
       return NextResponse.json(out);
     }
 
@@ -738,54 +792,8 @@ export async function handleApiRequest(request: NextRequest, segments: string[])
     if (e instanceof z.ZodError) {
       return NextResponse.json({ message: e.flatten().formErrors.join(", ") || "Payload invalido" }, { status: 400 });
     }
-    if (e instanceof ApiConfigError) {
-      console.error("[api]", e.logDetail ?? e.message);
-      return NextResponse.json({ message: e.message }, { status: e.statusCode });
-    }
-    const err = e as Error & { status?: number };
-    if (err.status === 400) {
-      return NextResponse.json({ message: err.message }, { status: 400 });
-    }
-    if (isJwtSecretConfigError(e)) {
-      console.error("[api] JWT/config", e);
-      return NextResponse.json(
-        { message: "Servico temporariamente indisponivel. Tente mais tarde." },
-        { status: 503 },
-      );
-    }
-    if (e instanceof Error && /^Variaveis de ambiente invalidas/i.test(e.message)) {
-      console.error("[api] env parse", e.message);
-      return NextResponse.json({ message: "Servico temporariamente indisponivel. Tente mais tarde." }, { status: 503 });
-    }
-    if (
-      isDatabaseUnavailableError(e) ||
-      (e instanceof Error &&
-        (e.name === "PrismaClientInitializationError" || e.constructor?.name === "PrismaClientInitializationError"))
-    ) {
-      console.error("[api] database unavailable", e);
-      return NextResponse.json(
-        { message: "Nao foi possivel conectar ao servico. Tente mais tarde." },
-        { status: 503 },
-      );
-    }
-    if (e instanceof Prisma.PrismaClientKnownRequestError && e.code === "P2003") {
-      const hint = `${e.message} ${JSON.stringify(e.meta ?? {})}`;
-      if (hint.includes("user_id") || hint.includes("users")) {
-        return NextResponse.json(
-          {
-            message: "Sessao expirada ou invalida. Saia, limpe os dados do site para este dominio e entre novamente.",
-          },
-          { status: 401 },
-        );
-      }
-    }
     console.error("[api]", e);
-    const expose =
-      process.env.NODE_ENV === "development" || process.env.API_DEBUG_ERRORS === "1";
-    const detail =
-      expose && e instanceof Error
-        ? `${e.name}: ${e.message}`.slice(0, 500)
-        : "Algo correu mal. Tente mais tarde.";
-    return NextResponse.json({ message: detail }, { status: 500 });
+    const { message, status } = apiErrorMessage(e);
+    return NextResponse.json({ message }, { status });
   }
 }

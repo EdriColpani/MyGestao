@@ -15,6 +15,26 @@ function isBrowserLocalHost(hostname: string): boolean {
   return hostname === "localhost" || hostname === "127.0.0.1" || hostname === "[::1]";
 }
 
+/** Só usa NEXT_PUBLIC_API_URL se for o mesmo host que a página (evita CORS com domínio próprio vs vercel.app). */
+function externalApiBaseForBrowser(ext: string): string {
+  if (!ext || isLoopbackUrl(ext)) return "";
+  if (typeof window === "undefined") return ext.replace(/\/$/, "");
+
+  if (isBrowserLocalHost(window.location.hostname)) {
+    return ext.replace(/\/$/, "");
+  }
+
+  try {
+    const u = new URL(ext.includes("://") ? ext : `https://${ext}`);
+    if (u.hostname === window.location.hostname) {
+      return ext.replace(/\/$/, "");
+    }
+  } catch {
+    return "";
+  }
+  return "";
+}
+
 /**
  * Base opcional para a API. Em produção (domínio real), URLs para localhost são ignoradas
  * para não quebrar o deploy na Vercel quando o .env local é copiado por engano.
@@ -28,13 +48,7 @@ export function getApiBaseUrl(): string {
     return "";
   }
 
-  if (isBrowserLocalHost(window.location.hostname)) {
-    return ext.replace(/\/$/, "");
-  }
-  if (!isLoopbackUrl(ext)) {
-    return ext.replace(/\/$/, "");
-  }
-  return "";
+  return externalApiBaseForBrowser(ext);
 }
 
 function getServerSideOrigin(): string {
@@ -59,14 +73,9 @@ export function resolveApiFetchUrl(path: string): string {
     return `${origin}${apiPath}`;
   }
 
-  const host = window.location.hostname;
-  const local = isBrowserLocalHost(host);
-
-  if (local && ext) {
-    return `${ext.replace(/\/$/, "")}${pathNorm}`;
-  }
-  if (!local && ext && !isLoopbackUrl(ext)) {
-    return `${ext.replace(/\/$/, "")}${pathNorm}`;
+  const extBase = externalApiBaseForBrowser(ext ?? "");
+  if (extBase) {
+    return `${extBase}${pathNorm}`;
   }
   if (pathNorm.startsWith("/api")) {
     return pathNorm;
@@ -74,18 +83,42 @@ export function resolveApiFetchUrl(path: string): string {
   return `/api${pathNorm}`;
 }
 
+const BEARER_CACHE_MS = 55_000;
+let cachedBearer: string | null = null;
+let cachedBearerAt = 0;
+
+/** Limpa token em memoria (logout, 401, etc.). */
+export function invalidateApiAuthCache(): void {
+  cachedBearer = null;
+  cachedBearerAt = 0;
+}
+
 async function getBearerForApi(): Promise<string | null> {
+  if (typeof window !== "undefined" && cachedBearer && Date.now() - cachedBearerAt < BEARER_CACHE_MS) {
+    return cachedBearer;
+  }
+
   if (typeof window !== "undefined") {
     try {
       const { createSupabaseBrowserClient } = await import("@/lib/supabase/browser-client");
       const sb = createSupabaseBrowserClient();
       const { data } = await sb.auth.getSession();
-      if (data.session?.access_token) return data.session.access_token;
+      if (data.session?.access_token) {
+        cachedBearer = data.session.access_token;
+        cachedBearerAt = Date.now();
+        return cachedBearer;
+      }
     } catch {
       /* Supabase nao configurado ou erro de sessao */
     }
   }
-  return getAccessToken();
+
+  const legacy = getAccessToken();
+  if (legacy) {
+    cachedBearer = legacy;
+    cachedBearerAt = Date.now();
+  }
+  return legacy;
 }
 
 async function refreshSupabaseSession(): Promise<boolean> {
@@ -97,11 +130,14 @@ async function refreshSupabaseSession(): Promise<boolean> {
     if (error || !data.session) {
       await sb.auth.signOut();
       clearTokens();
+      invalidateApiAuthCache();
       return false;
     }
+    invalidateApiAuthCache();
     return true;
   } catch {
     clearTokens();
+    invalidateApiAuthCache();
     return false;
   }
 }
@@ -118,6 +154,7 @@ async function refreshLegacyAccess(): Promise<boolean> {
 
   if (!res.ok) {
     clearTokens();
+    invalidateApiAuthCache();
     return false;
   }
 
@@ -125,8 +162,10 @@ async function refreshLegacyAccess(): Promise<boolean> {
   const nextRefresh = getRefreshToken();
   if (nextRefresh) {
     setTokens(data.accessToken, nextRefresh);
+    invalidateApiAuthCache();
   } else {
     clearTokens();
+    invalidateApiAuthCache();
     return false;
   }
   return true;
@@ -147,6 +186,7 @@ export async function apiFetch(path: string, init?: RequestInit): Promise<Respon
   let res = await fetch(url, { ...init, headers });
 
   if (res.status === 401 && !PUBLIC_AUTH_JSON_PATHS.has(path)) {
+    invalidateApiAuthCache();
     const supabaseOk = await refreshSupabaseSession();
     const legacyOk = !supabaseOk ? await refreshLegacyAccess() : false;
     const ok = supabaseOk || legacyOk;

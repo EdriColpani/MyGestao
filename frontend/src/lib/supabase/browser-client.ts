@@ -3,8 +3,13 @@
 import { createBrowserClient } from "@supabase/ssr";
 import { requireSupabasePublicConfig } from "./public-env";
 
-/** Cliente Supabase no browser (rotas `use client`). Variáveis em `frontend/.env`. */
+let browserClient: ReturnType<typeof createBrowserClient> | undefined;
+
+/** Cliente Supabase no browser (singleton — evita recriar em cada pedido à API). */
 export function createSupabaseBrowserClient() {
-  const { url, anonKey } = requireSupabasePublicConfig();
-  return createBrowserClient(url, anonKey);
+  if (!browserClient) {
+    const { url, anonKey } = requireSupabasePublicConfig();
+    browserClient = createBrowserClient(url, anonKey);
+  }
+  return browserClient;
 }
